@@ -6,6 +6,22 @@
  * Micro blogging tool
  */
 
+
+/**
+ * Modules should return this value from hook_micro_access() to allow access to a micro.
+ */
+define('MICRO_ACCESS_ALLOW', 'allow');
+
+/**
+ * Modules should return this value from hook_micro_access() to deny access to a micro.
+ */
+define('MICRO_ACCESS_DENY', 'deny');
+
+/**
+ * Modules should return this value from hook_micro_access() to not affect micro access.
+ */
+define('MICRO_ACCESS_IGNORE', NULL);
+
 //=============
 //DRUPAL HOOKS.
 //=============
@@ -962,6 +978,135 @@ function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
   module_invoke_all('micro_view', $micro, $view_mode, $langcode);
 }
 
+/**
+ * Determine whether the current user may perform the given operation on the
+ * specified micro.
+ *
+ * @param $op
+ *   The operation to be performed on the micro. Possible values are:
+ *   - "view"
+ *   - "update"
+ *   - "delete"
+ *   - "create"
+ * @param $micro
+ *   The micro object on which the operation is to be performed, or micro type
+ *   for "create" operation.
+ * @param $account
+ *   Optional, a user object representing the user for whom the operation is to
+ *   be performed. Determines access for a user other than the current user.
+ * @return
+ *   TRUE if the operation may be performed, FALSE otherwise.
+ */
+function micro_access($op, $micro, $account = NULL) {
+  global $user;
+
+  $rights = &drupal_static(__FUNCTION__, array());
+
+  if (!$micro || !in_array($op, array('view', 'update', 'delete', 'create'), TRUE)) {
+    // If there was no micro to check against, or the $op was not one of the
+    // supported ones, we return access denied.
+    return FALSE;
+  }
+  // If no user object is supplied, the access check is for the current user.
+  if (empty($account)) {
+    $account = $user;
+  }
+
+  // $micro may be either an object or a micro type. Since micro types cannot be
+  // an integer, use either mid or type as the static cache id.
+
+  $cid = is_object($micro) ? $micro->mid : $micro;
+
+  // If we've already checked access for this micro, user and op, return from
+  // cache.
+  if (isset($rights[$account->uid][$cid][$op])) {
+    return $rights[$account->uid][$cid][$op];
+  }
+
+  if (user_access('bypass micro access', $account)) {
+    $rights[$account->uid][$cid][$op] = TRUE;
+    return TRUE;
+  }
+  if (!user_access('access micro content', $account)) {
+    $rights[$account->uid][$cid][$op] = FALSE;
+    return FALSE;
+  }
+
+  // We grant access to the micro if both of the following conditions are met:
+  // - No modules say to deny access.
+  // - At least one module says to grant access.
+  // If no module specified either allow or deny, we fall back to the defaults.
+  $access = module_invoke_all('micro_access', $micro, $op, $account);
+  if (in_array(MICRO_ACCESS_DENY, $access, TRUE)) {
+    $rights[$account->uid][$cid][$op] = FALSE;
+    return FALSE;
+  }
+  elseif (in_array(MICRO_ACCESS_ALLOW, $access, TRUE)) {
+    $rights[$account->uid][$cid][$op] = TRUE;
+    return TRUE;
+  }
+
+  if($op != 'create' && $micro->mid) {
+    // Check whether the author is allowed to view/edit/delete their own micro items.
+    if ($account->uid == $micro->uid && user_access($op . ' own micro items', $account) && $account->uid != 0) {
+      $rights[$account->uid][$cid][$op] = TRUE;
+      return TRUE;
+    }
+    // Check for the following cases:
+    // - If editing/deleting, check whether the user has permission and access to the operation on the entity.
+    // - If viewing and the micro item is not private, check whether the user has access to view the entity.
+    // - If viewing and the micro item is private, check whether the user viewing is the author of the entity it's attached to.
+    elseif (($op != 'view' && user_access($op . ' micro items attached to own content', $account->uid)) || ($op == 'view')) {
+      switch ($micro->entity) {
+        case 'node':
+          $entity = node_load($micro->eid);
+          if (($op !== 'view' && node_access($op, $entity, $user)) ||
+              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && node_access($op, $entity, $user)) ||
+              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+            $rights[$account->uid][$cid][$op] = TRUE;
+            return TRUE;
+          }
+          break;
+        case 'user':
+          $entity = user_load($micro->eid);
+          if (($op !== 'view' && user_edit_access($entity)) ||
+              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && user_view_access($entity)) ||
+              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+            $rights[$account->uid][$cid][$op] = TRUE;
+            return TRUE;
+          }
+          break;
+        case 'comment':
+          $entity = comment_load($micro->eid);
+          if (($op !== 'view' && comment_access($op, $entity)) ||
+              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && comment_access($op, $entity)) ||
+              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+            $rights[$account->uid][$cid][$op] = TRUE;
+            return TRUE;
+          }
+          break;
+        case 'taxonomy':
+          $vocabulary = taxonomy_get_vocabulary($micro->eid);
+          // Micro items attached to taxonomy terms cannot be private
+          if (($op !== 'view' && user_access($op . ' terms ' . ($op == 'edit' ? 'in ' : 'from ') . $vocabulary)) ||
+              ($op == 'view')) {
+            $rights[$account->uid][$cid][$op] = TRUE;
+            return TRUE;
+          }
+          break;
+        default:
+          //TODO - not sure what else to add here
+          if ($op == 'view') {
+            return TRUE;
+          }
+          break;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
 
 //=================
 //HELPER FUNCTIONS.
@@ -1910,11 +2055,13 @@ function micro_save_action($micro) {
 //TODO - Check if Rules integration is needed
 //TODO - Blocks
 //TODO - Search integration
-// micro_invoke micro_object_prepare micro_delete micro_save micro_validate? micro_access micro_build_content micro_access_acquire_grants
 //TODO - Options: expiration date / micro view page / short url / editable name + date / limited access? / delete confirm /
 //TODO - is_new
 //TODO - created/changed/timestamp
 //TODO - micro_view + micro_build_content
+//TODO - remove all micro->status
+//TODO - micro->entity (attached entity)
+//TODO - variable_set('micro_private_' . $type)
 
 /*
  *hook_micro_widget($entity, $bundle, $display) {

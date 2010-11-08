@@ -5,4 +5,6 @@ version = 7.x-1.0
 core = 7.x
 files[] = micro.module
 files[] = micro.install
+files[] = micro.admin.inc
+files[] = micro.pages.inc
 dependencies[] = entity
