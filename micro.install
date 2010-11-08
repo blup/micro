@@ -1,0 +1,49 @@
+<?php
+// $Id: micro.install, v 1.0 2010/12/01 04:20:00 blup Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the micro module.
+ */
+
+/**
+ * Implement hook_install().
+ */
+function micro_install() {
+}
+
+/**
+ * Implement hook_schema().
+ */
+function micro_schema() {
+  $schema['micro'] = array(
+    'description' => 'Stores micro items.',
+    'fields' => array(
+      'mid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE, 'description' => 'Primary Key: Micro item ID'),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The {micro_type}.type of this item'),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The {users}.uid of the item\'s author'),
+      'eid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The entity ID to which the post is attached to'),
+      //'status' => array('type' => 'int', 'not null' => TRUE, 'default' => 0, 'description' => 'Boolean for the item\'s status'),
+      'timestamp' => array('type' => 'int', 'not null' => TRUE, 'default' => 0, 'description' => 'Creation date'),
+    ),
+    'indexes' => array('eid' => array('eid')),
+    'foreign keys' => array('eid' => array('users' => 'uid'), 'type' => array('micro_types' => 'type')),
+    'primary key' => array('mid'),
+  );
+
+  $schema['micro_type'] = array(
+    'description' => 'Stores information about all defined micro types.',
+    'fields' => array(
+      'id' => array('type' => 'serial', 'not null' => TRUE, 'description' => 'Primary Key: Unique micro type ID'),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The machine-readable name of this micro type'),
+      'label' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => '', 'description' => 'The human-readable name of this micro type'),
+      'entity' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The entity type to which this micro type is attached to'),
+      'bundles' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'The bundle type(s) to which this micro type is attached to'),
+      'weight' => array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0, 'description' => 'The weight of this micro type in relation to others.'),
+      'data' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'A serialized array of additional data related to this micro type', 'merge' => TRUE, ),
+    ),
+    'primary key' => array('id'),
+    'unique keys' => array('type' => array('type')),
+  );
+  return $schema;
+}

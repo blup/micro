@@ -1,0 +1,8 @@
+; $Id: micro.info,v 0.1 2011/01/01 04:20:00 blup Exp $
+name = Micro
+description = Micro blogging tool.
+version = 7.x-1.0
+core = 7.x
+files[] = micro.module
+files[] = micro.install
+dependencies[] = entity
