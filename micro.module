@@ -261,6 +261,9 @@ function micro_theme() {
     'micro_admin_type' => array(
       'variables' => array('name' => NULL, 'type' => NULL),
     ),
+    'micro_admin_overview' => array(
+      'variables' => array('name' => NULL, 'type' => NULL),
+    ),
   );
 }
 /**
@@ -291,6 +294,7 @@ function micro_entity_info() {
       ),
     ),
   );
+
   $return['micro_type'] = array(
     'label' => t('Micro type'),
     'entity class' => 'MicroType',
@@ -305,6 +309,7 @@ function micro_entity_info() {
       'label' => 'name',
     ),
   );
+
 
   // Bundles must provide a human readable name so we can create help and error
   // messages, and the path to attach Field admin pages to.
@@ -328,13 +333,15 @@ function micro_entity_info() {
  * Use this hook to specify micro bundles to avoid a recursion, as loading
  * the micro types needs the entity info too.
  */
+
 function micro_entity_info_alter(&$entity_info) {
   foreach (micro_type_get_types() as $name => $info) {
     $entity_info['micro']['bundles'][$name] = array(
-      'label' => $info->label,
+      'label' => $info->name,
     );
   }
 }
+
 
 /**
  * Implements hook_comment_view().
@@ -504,6 +511,16 @@ function micro_user_view($account) {
   }
 }
 
+/**
+ * Implements hook_form().
+ */
+function micro_content_form($micro, $form_state) {
+  // It is impossible to define a content type without implementing hook_form()
+  // @todo: remove this requirement.
+  $form = array();
+  $type = micro_type_get_type($micro);
+  return $form;
+}
 
 //==========
 //MICRO API.
@@ -630,12 +647,13 @@ function micro_save(Micro $micro) {
 /**
  * Saves a micro type to the db.
  */
+
 function micro_type_save(MicroType $type) {
-  $type = micro_type_set_defaults($type);
+  //$type = micro_type_set_defaults($type);
   $type->save();
-  dsm($type);
   drupal_static_reset('_micro_types_build');
 }
+
 
 /**
  * Deletes a micro type from the db.
@@ -669,16 +687,21 @@ class Micro extends EntityDBExtendable {
  * modules may alter.
  * TODO - change variables
  */
+
 class MicroType extends EntityDBExtendable {
+
 
   /**
    * Whether the micro type appears in the user categories.
    */
+
   public $userCategory = TRUE;
+
 
   /**
    * Whether the micro is displayed on the user account page.
    */
+
   public $userView = TRUE;
 
 
@@ -690,16 +713,19 @@ class MicroType extends EntityDBExtendable {
     parent::__construct($values, 'micro_type');
   }
 
+
   /**
    * Returns whether the micro type is locked, thus may not be deleted or renamed.
    *
    * Micro types provided in code are automatically treated as locked, as well
    * as any fixed micro type.
    */
+
   public function isLocked() {
     return isset($this->status) && (($this->status & ENTITY_IN_CODE) || ($this->status & ENTITY_FIXED));
   }
 }
+
 
 /**
  * Implements hook_default_micro_type().
@@ -1217,6 +1243,7 @@ function micro_type_load($name) {
  * @return
  *   Status flag indicating outcome of the operation.
  */
+
 /*
  *function micro_type_save($info) {
  *  $is_existing = FALSE;
@@ -1263,6 +1290,7 @@ function micro_type_load($name) {
  *  return $status;
  *}
  */
+
 
 /**
  * Deletes a micro type from the database.
@@ -1329,7 +1357,6 @@ function micro_type_set_defaults($info = array()) {
   $new_type = clone $type;
   //TODO
   //$info = (array) $info;
-  dsm($info);
   foreach ($info as $key => $data) {
     $new_type->$key = $data;
   }
@@ -1727,6 +1754,23 @@ function _micro_types_build($rebuild = FALSE) {
   asort($_micro_types->names);
 
   return $_micro_types;
+}
+
+/**
+ * Gets an array of all micro types, keyed by the type name.
+ *
+ * @param $type
+ *   If set, the type with the given name is returned.
+ * @return microType[]
+ *   Depending whether $type isset, an array of micro types or a single one.
+ */
+function micro_get_types($type = NULL) {
+  // @todo: fix fugly variable names.
+  $types = entity_load('micro_type', isset($type) ? array($type) : FALSE);
+  if (isset($type)) {
+    return isset($types[$type]) ? $types[$type] : FALSE;
+  }
+  return $types;
 }
 
 

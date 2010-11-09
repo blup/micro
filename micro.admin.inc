@@ -69,7 +69,6 @@ function micro_overview_types() {
 function theme_micro_admin_overview($variables) {
   $name = $variables['name'];
   $type = $variables['type'];
-
   $output = check_plain($name);
   $output .= ' <small> (Machine name: ' . check_plain($type->type) . ')</small>';
   $output .= '<div class="description">' . filter_xss_admin($type->description) . '</div>';
@@ -85,6 +84,8 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
 
+  $all = entity_get_info();
+  dsm($all);
   // Make the type object available to implementations of hook_form_alter.
   $form['#micro_type'] = $type;
 
@@ -237,6 +238,7 @@ function micro_type_form_validate($form, &$form_state) {
 
   $names = array_flip($types);
 
+  //TODO - validate whether there is an existing name
   if (isset($names[$type->name]) && $names[$type->name] != $old_type) {
     form_set_error('name', t('The human-readable name %name is already taken.', array('%name' => $type->name)));
   }
@@ -250,10 +252,9 @@ function micro_type_form_submit($form, &$form_state) {
 
   $type = micro_type_set_defaults();
 
-  $type->type = trim($form_state['values']['type']);
+$type->type = trim($form_state['values']['name']);
+  //$type->type = trim($form_state['values']['type']);
   $type->name = trim($form_state['values']['name']);
-  $type->old_type = isset($form_state['values']['old_type']) ? $form_state['values']['old_type'] : $type->type;
-
   $type->description = $form_state['values']['description'];
   $type->help = $form_state['values']['help'];
 
@@ -281,17 +282,12 @@ function micro_type_form_submit($form, &$form_state) {
 
   // Save or reset persistent variable values.
   foreach ($variables as $key => $value) {
-    $variable_new = $key . '_' . $type->type;
-    $variable_old = $key . '_' . $type->old_type;
+    $variable = $key . '_' . $type->type;
 
     if (is_array($value)) {
       $value = array_keys(array_filter($value));
     }
-    variable_set($variable_new, $value);
-
-    if ($variable_new != $variable_old) {
-      variable_del($variable_old);
-    }
+    variable_set($variable, $value);
   }
 
   // Saving the micro type after saving the variables allows modules to act
@@ -306,7 +302,6 @@ function micro_type_form_submit($form, &$form_state) {
     drupal_set_message(t('The micro type %name has been updated.', $t_args));
   }
   elseif ($status == SAVED_NEW) {
-    micro_add_body_field($type);
     drupal_set_message(t('The micro type %name has been added.', $t_args));
     watchdog('micro', 'Added micro type %name.', $t_args, WATCHDOG_NOTICE, l(t('view'), 'admin/structure/micro'));
   }
