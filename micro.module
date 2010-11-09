@@ -6,7 +6,6 @@
  * Micro blogging tool
  */
 
-
 /**
  * Modules should return this value from hook_micro_access() to allow access to a micro.
  */
@@ -21,6 +20,7 @@ define('MICRO_ACCESS_DENY', 'deny');
  * Modules should return this value from hook_micro_access() to not affect micro access.
  */
 define('MICRO_ACCESS_IGNORE', NULL);
+
 
 //=============
 //DRUPAL HOOKS.
@@ -152,9 +152,6 @@ function micro_menu() {
    *  'type' => MENU_CALLBACK,
    *);
    */
-  // @todo Remove this loop when we have a 'description callback' property.
-  // Reset internal static cache of _micro_types_build(), forces to rebuild the
-  // micro type information.
   drupal_static_reset('_micro_types_build');
   foreach (micro_type_get_types() as $type) {
     $type_url_str = str_replace('_', '-', $type->type);
@@ -246,8 +243,6 @@ function micro_menu() {
     'title' => 'Edit',
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
-  /*
-  //TODO
   $items['admin/structure/micros/manage/%micro_type/delete'] = array(
     'title' => 'Delete',
     'page arguments' => array('node_type_delete_confirm', 4),
@@ -255,7 +250,6 @@ function micro_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'content_types.inc',
   );
-  */
   return $items;
 }
 
@@ -265,12 +259,13 @@ function micro_menu() {
 function micro_theme() {
   return array(
     'micro_admin_type' => array(
-      'variables' => array('label' => NULL, 'type' => NULL),
+      'variables' => array('name' => NULL, 'type' => NULL),
     ),
   );
 }
 /**
  * Implements hook_entity_info()
+ * TODO - check
  */
 function micro_entity_info() {
   $return = array(
@@ -288,7 +283,7 @@ function micro_entity_info() {
       'entity keys' => array(
         'id' => 'mid',
         'bundle' => 'type',
-        'label' => 'label',
+        'label' => 'mid',
       ),
       'bundles' => array(),
       'bundle keys' => array(
@@ -307,9 +302,24 @@ function micro_entity_info() {
     'entity keys' => array(
       'id' => 'id',
       'name' => 'type',
-      'label' => 'label',
+      'label' => 'name',
     ),
   );
+
+  // Bundles must provide a human readable name so we can create help and error
+  // messages, and the path to attach Field admin pages to.
+  foreach (micro_type_get_names() as $type => $name) {
+    $return['micro']['bundles'][$type] = array(
+      'label' => $name,
+      'admin' => array(
+        'path' => 'admin/structure/micro/manage/%micro_type',
+        'real path' => 'admin/structure/micro/manage/' . str_replace('_', '-', $type),
+        'bundle argument' => 4,
+        'access arguments' => array('administer micro types'),
+      ),
+    );
+  }
+
   return $return;
 }
 /**
@@ -487,29 +497,17 @@ function micro_user_view($account) {
     if ($micro_type->userView && ($micro = micro_load_by_user($account, $type))) {
       $account->content['micro_' . $type] = array(
         '#type' => 'user_micro_category',
-        '#title' => $micro->label,
+        '#title' => $micro->name,
       );
       $account->content['micro_' . $type] += field_attach_view('micro', $micro, 'account');
     }
   }
 }
 
+
 //==========
 //MICRO API.
 //==========
-
-/**
- * Menu argument loader; Load a micro type by string.
- *
- * @param $type
- *   The machine-readable name of a micro type to load;
- *   having '_' replaced with '-'.
- * @return
- *   A micro type array or FALSE if $type does not exist.
- */
-function micro_type_load($type) {
-  return micro_get_types(strtr($type, array('-' => '_')));
-}
 
 /**
  * Menu title callback.
@@ -537,16 +535,16 @@ function micro_permission() {
     $type_name = check_plain($type->type);
     $permissions += array(
       "edit own $type_name micro" => array(
-        'title' => t('Edit own %type_name micro', array('%type_name' => $type->label)),
+        'title' => t('Edit own %type_name micro', array('%type_name' => $type->name)),
       ),
       "edit any $type_name micro" => array(
-        'title' => t('Edit any %type_name micro', array('%type_name' => $type->label)),
+        'title' => t('Edit any %type_name micro', array('%type_name' => $type->name)),
       ),
       "view own $type_name micro" => array(
-        'title' => t('View own %type_name micro', array('%type_name' => $type->label)),
+        'title' => t('View own %type_name micro', array('%type_name' => $type->name)),
       ),
       "view any $type_name micro" => array(
-        'title' => t('View any %type_name micro', array('%type_name' => $type->label)),
+        'title' => t('View any %type_name micro', array('%type_name' => $type->name)),
       ),
     );
   }
@@ -633,7 +631,10 @@ function micro_save(Micro $micro) {
  * Saves a micro type to the db.
  */
 function micro_type_save(MicroType $type) {
+  $type = micro_type_set_defaults($type);
   $type->save();
+  dsm($type);
+  drupal_static_reset('_micro_types_build');
 }
 
 /**
@@ -641,6 +642,7 @@ function micro_type_save(MicroType $type) {
  */
 function micro_type_delete(MicroType $type) {
   $type->delete();
+  drupal_static_reset('_micro_types_build');
 }
 
 /**
@@ -650,16 +652,6 @@ function micro_micro_type_delete($type) {
   // Delete all micros of this type.
   $mids = array_keys(micro_load_multiple(FALSE, array('type' => $type->type)));
   micro_delete_multiple($mids);
-}
-
-/**
- * Implement hook_micro_type_presave().
- * TODO - edit unset statement
- */
-function micro_micro_type_presave($type) {
-  $data = get_object_vars($type);
-  unset($data['name'], $data['label'], $data['weight'], $data['locked'], $data['data'], $data['status']);
-  $type->data = $data;
 }
 
 /**
@@ -691,7 +683,7 @@ class MicroType extends EntityDBExtendable {
 
 
   public $type;
-  public $label;
+  public $name;
   public $weight = 0;
 
   public function __construct($values = array()) {
@@ -715,7 +707,7 @@ class MicroType extends EntityDBExtendable {
 function micro_default_micro_type() {
   $types['main'] = new MicroType(array(
       'type' => 'main',
-      'label' => t('Micro'),
+      'name' => t('Micro'),
       'weight' => 0,
   ));
   return $types;
@@ -807,7 +799,8 @@ function micro_load($mid = NULL, $reset = FALSE) {
  */
 function micro_object_prepare($micro) {
   // Set up default values, if required.
-  // TODO: $micro_options = variable_get('micro_options_' . $micro->type, array('status', 'promote'));
+  //TODO - default options?
+  $micro_options = variable_get('micro_options_' . $micro->type, array());
   // If this is a new micro, fill in the default values.
   if (!isset($micro->mid) || isset($micro->is_new)) {
     global $user;
@@ -815,7 +808,6 @@ function micro_object_prepare($micro) {
     $micro->created = REQUEST_TIME;
   }
   else {
-    //TODO
     $micro->date = format_date($micro->created, 'custom', 'Y-m-d H:i:s O');
   }
 
@@ -828,11 +820,6 @@ function micro_object_prepare($micro) {
  */
 function micro_validate($micro, $form, &$form_state) {
   $type = micro_type_get_type($micro);
-
-  // TODO - changed?
-  if (isset($micro->mid) && (micro_last_changed($micro->mid) > $micro->changed)) {
-    form_set_error('changed', t('The content on this page has either been modified by another user, or you have already submitted modifications using this form. As a result, your changes cannot be saved.'));
-  }
 
   // Invoke hook_validate() for micro type specific validation and
   // hook_micro_validate() for miscellaneous validation needed by modules. Can't
@@ -1230,56 +1217,52 @@ function micro_type_load($name) {
  * @return
  *   Status flag indicating outcome of the operation.
  */
-function micro_type_save($info) {
-  $is_existing = FALSE;
-  $existing_type = !empty($info->old_type) ? $info->old_type : $info->type;
-  $is_existing = (bool) db_query_range('SELECT 1 FROM {micro_type} WHERE type = :type', 0, 1, array(':type' => $existing_type))->fetchField();
-  $type = micro_type_set_defaults($info);
-
-  $fields = array(
-    'type' => (string) $type->type,
-    'name' => (string) $type->name,
-    'base' => (string) $type->base,
-    'has_title' => (int) $type->has_title,
-    'title_label' => (string) $type->title_label,
-    'description' => (string) $type->description,
-    'help' => (string) $type->help,
-    'custom' => (int) $type->custom,
-    'modified' => (int) $type->modified,
-    'locked' => (int) $type->locked,
-    'disabled' => (int) $type->disabled,
-    'module' => $type->module,
-  );
-
-  if ($is_existing) {
-    db_update('micro_type')
-      ->fields($fields)
-      ->condition('type', $existing_type)
-      ->execute();
-
-    if (!empty($type->old_type) && $type->old_type != $type->type) {
-      field_attach_rename_bundle('micro', $type->old_type, $type->type);
-    }
-    module_invoke_all('micro_type_update', $type);
-    $status = SAVED_UPDATED;
-  }
-  else {
-    $fields['orig_type'] = (string) $type->orig_type;
-    db_insert('micro_type')
-      ->fields($fields)
-      ->execute();
-
-    field_attach_create_bundle('micro', $type->type);
-
-    module_invoke_all('micro_type_insert', $type);
-    $status = SAVED_NEW;
-  }
-
-  // Clear the micro type cache.
-  drupal_static_reset('_micro_types_build');
-
-  return $status;
-}
+/*
+ *function micro_type_save($info) {
+ *  $is_existing = FALSE;
+ *  $existing_type = !empty($info->old_type) ? $info->old_type : $info->type;
+ *  $is_existing = (bool) db_query_range('SELECT 1 FROM {micro_type} WHERE type = :type', 0, 1, array(':type' => $existing_type))->fetchField();
+ *  $type = micro_type_set_defaults($info);
+ *
+ *  $fields = array(
+ *    'type' => (string) $type->type,
+ *    'name' => (string) $type->name,
+ *    'base' => (string) $type->base,
+ *    'description' => (string) $type->description,
+ *    'help' => (string) $type->help,
+ *    'disabled' => (int) $type->disabled,
+ *    'module' => $type->module,
+ *  );
+ *
+ *  if ($is_existing) {
+ *    db_update('micro_type')
+ *      ->fields($fields)
+ *      ->condition('type', $existing_type)
+ *      ->execute();
+ *
+ *    if (!empty($type->old_type) && $type->old_type != $type->type) {
+ *      field_attach_rename_bundle('micro', $type->old_type, $type->type);
+ *    }
+ *    module_invoke_all('micro_type_update', $type);
+ *    $status = SAVED_UPDATED;
+ *  }
+ *  else {
+ *    db_insert('micro_type')
+ *      ->fields($fields)
+ *      ->execute();
+ *
+ *    field_attach_create_bundle('micro', $type->type);
+ *
+ *    module_invoke_all('micro_type_insert', $type);
+ *    $status = SAVED_NEW;
+ *  }
+ *
+ *  // Clear the micro type cache.
+ *  drupal_static_reset('_micro_types_build');
+ *
+ *  return $status;
+ *}
+ */
 
 /**
  * Deletes a micro type from the database.
@@ -1287,17 +1270,19 @@ function micro_type_save($info) {
  * @param $type
  *   The machine-readable name of the micro type to be deleted.
  */
-function micro_type_delete($type) {
-  $info = micro_type_get_type($type);
-  db_delete('micro_type')
-    ->condition('type', $type)
-    ->execute();
-  field_attach_delete_bundle('micro', $type);
-  module_invoke_all('micro_type_delete', $info);
-
-  // Clear the micro type cache.
-  drupal_static_reset('_micro_types_build');
-}
+/*
+ *function micro_type_delete($type) {
+ *  $info = micro_type_get_type($type);
+ *  db_delete('micro_type')
+ *    ->condition('type', $type)
+ *    ->execute();
+ *  field_attach_delete_bundle('micro', $type);
+ *  module_invoke_all('micro_type_delete', $info);
+ *
+ *  // Clear the micro type cache.
+ *  drupal_static_reset('_micro_types_build');
+ *}
+ */
 
 /**
  * Updates all micros of one type to be of another type.
@@ -1321,8 +1306,6 @@ function micro_type_update_micros($old_type, $type) {
  * Set the default values for a micro type.
  *
  * The defaults are for a type defined through hook_micro_info().
- * When populating a custom micro type $info should have the 'custom'
- * key set to 1.
  *
  * @param $info
  *   An object or array containing values to override the defaults.
@@ -1334,28 +1317,25 @@ function micro_type_set_defaults($info = array()) {
   $type = &drupal_static(__FUNCTION__);
 
   if (!isset($type)) {
-    $type = new stdClass();
+    $type = new MicroType();
     $type->type = '';
     $type->name = '';
     $type->base = '';
     $type->description = '';
     $type->help = '';
-    $type->custom = 0;
-    $type->modified = 0;
-    $type->locked = 1;
     $type->disabled = 0;
     $type->is_new = 1;
   }
-
   $new_type = clone $type;
-  $info = (array) $info;
+  //TODO
+  //$info = (array) $info;
+  dsm($info);
   foreach ($info as $key => $data) {
     $new_type->$key = $data;
   }
   if (empty($new_type->module)) {
     $new_type->module = $new_type->base == 'micro_content' ? 'micro' : '';
   }
-  $new_type->orig_type = isset($info['type']) ? $info['type'] : '';
 
   return $new_type;
 }
@@ -1496,14 +1476,6 @@ function micro_get_micro_types($entity = NULL, $bundle = NULL, $account = NULL, 
       if (isset($micro_types[$name])) {
         // Ensure overridden micro_types are associated with their parent module.
         $micro_types[$name]->module = $default_micro->module;
-
-        // Update the micro with any properties that are "locked" by the code version.
-        if (isset($default_micro->locked)) {
-          $micro_types[$name]->locked = $default_micro->locked;
-          foreach ($default_micro->locked as $property) {
-            $micro_types[$name]->$property = $default_micro->$property;
-          }
-        }
       }
     }
 
@@ -1717,7 +1689,6 @@ function _micro_types_build($rebuild = FALSE) {
     }
   }
   $query = db_select('micro_type', 'mt')
-    ->addTag('translatable')
     ->addTag('micro_type_access')
     ->fields('mt')
     ->orderBy('mt.type', 'ASC');
@@ -1737,14 +1708,9 @@ function _micro_types_build($rebuild = FALSE) {
     if (isset($info_array[$type_db])) {
       $type_object->disabled = FALSE;
     }
-    if (!isset($_micro_types->types[$type_db]) || $type_object->modified) {
+    if (!isset($_micro_types->types[$type_db])) {
       $_micro_types->types[$type_db] = $type_object;
       $_micro_types->names[$type_db] = $type_object->name;
-
-      if ($type_db != $type_object->orig_type) {
-        unset($_micro_types->types[$type_object->orig_type]);
-        unset($_micro_types->names[$type_object->orig_type]);
-      }
     }
     $_micro_types->types[$type_db]->disabled = $type_object->disabled;
     $_micro_types->types[$type_db]->disabled_changed = $disabled != $type_object->disabled;
@@ -2062,6 +2028,11 @@ function micro_save_action($micro) {
 //TODO - remove all micro->status
 //TODO - micro->entity (attached entity)
 //TODO - variable_set('micro_private_' . $type)
+//TODO - micro_invoke?
+//TODO - micro_page_title = mid
+//TODO - micro.js + micro_types.js
+//TODO - hook_uninstall, hook_disable, micro_enable
+//TODO - add permissions
 
 /*
  *hook_micro_widget($entity, $bundle, $display) {

@@ -6,98 +6,199 @@
  * Micro type editing UI.
  */
 
+
 /**
  * Displays the micro type admin overview page.
  */
 function micro_overview_types() {
-  $types = micro_get_types();
-
-  $header = array(t('Name'), array('data' => t('Operations'), 'colspan' => '2'));
+  $types = micro_type_get_types();
+  $names = micro_type_get_names();
+  $field_ui = module_exists('field_ui');
+  $header = array(t('Name'), array('data' => t('Operations'), 'colspan' => $field_ui ? '4' : '2'));
   $rows = array();
 
-  foreach($types as $id => $type) {
-    $type_url_str = str_replace('_', '-', $id);
+  foreach ($names as $key => $name) {
+    $type = $types[$key];
+    if (micro_hook($type->type, 'form')) {
+      $type_url_str = str_replace('_', '-', $type->type);
+      $row = array(theme('micro_admin_overview', array('name' => $name, 'type' => $type)));
+      // Set the edit column.
+      $row[] = array('data' => l(t('edit'), 'admin/structure/micro/manage/' . $type_url_str));
 
-    // Start building the row and add a name label and edit operation link
-    $row = array();
-    $row[] = array('data' => theme('micro_admin_type', array('label' => $type->label, 'type' => $type)));
-    $row[] = array('data' => l(t('edit'), 'admin/structure/micro/manage/' . $type_url_str));
+      if ($field_ui) {
+        // Manage fields.
+        $row[] = array('data' => l(t('manage fields'), 'admin/structure/micro/manage/' . $type_url_str . '/fields'));
 
-    // If not locked, add a delete column
-    if (!$type->isLocked()) {
-      $row[] = array('data' => l(t('delete'), 'admin/structure/micro/manage/' . $type_url_str . '/delete'));
+        // Display fields.
+        $row[] = array('data' => l(t('manage display'), 'admin/structure/micro/manage/' . $type_url_str . '/display'));
+      }
+
+      // Set the delete column.
+      if ($type->module == 'micro') {
+        $row[] = array('data' => l(t('delete'), 'admin/structure/micro/manage/' . $type_url_str . '/delete'));
+      }
+      else {
+        $row[] = array('data' => '');
+      }
+
+      $rows[] = $row;
     }
-    else {
-      $row[] = array('data' => '');
-    }
-
-    // Add this row onto the table
-    $rows[] = $row;
-  }
-
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No micros available. <a href="@link">Add a micro</a>.', array('@link' => url('admin/structure/micro/add'))), 'colspan' => '5', 'class' => array('message')));
   }
 
   $build['micro_table'] = array(
     '#theme' => 'table',
     '#header' => $header,
-    '#rows' => $rows
+    '#rows' => $rows,
+    '#empty' => t('No micro types available. <a href="@link">Add micro type</a>.', array('@link' => url('admin/structure/micro/add'))),
   );
+
   return $build;
 }
 
 /**
- * Theme the label and machine name for the micro type admin list.
+ * Returns HTML for a micro type description for the micro type admin overview page.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - name: The human-readable name of the micro type.
+ *   - type: An object containing the 'type' (machine name) and 'description' of
+ *     the micro type.
+ *
+ * @ingroup themeable
  */
-function theme_micro_admin_type($variables) {
-  $label = $variables['label'];
-  $micro_type  = $variables['type'];
+function theme_micro_admin_overview($variables) {
+  $name = $variables['name'];
+  $type = $variables['type'];
 
-  $output = check_plain($label);
-  $output .= ' <small> (Machine name: ' . check_plain($micro_type->type) . ')</small>';
-  // @todo if we add a description column to micro types.
-  //$output .= '<div class="description">' . filter_xss_admin($type['description']) . '</div>';
+  $output = check_plain($name);
+  $output .= ' <small> (Machine name: ' . check_plain($type->type) . ')</small>';
+  $output .= '<div class="description">' . filter_xss_admin($type->description) . '</div>';
   return $output;
 }
 
 /**
  * Generates the micro type editing form.
  */
-function micro_type_form($form, &$form_state, $micro_type = NULL) {
-  if (!isset($micro_type)) {
-    // This is a new type.
-    $micro_type = new MicroType();
+function micro_type_form($form, &$form_state, $type = NULL) {
+  if (!isset($type->type)) {
+    // This is a new type, managed by micro module.
+    $type = micro_type_set_defaults(array('module' => 'micro'));
   }
 
   // Make the type object available to implementations of hook_form_alter.
-  $form_state += array('micro_type' => $micro_type);
+  $form['#micro_type'] = $type;
 
   $form['name'] = array(
     '#title' => t('Name'),
     '#type' => 'textfield',
-    '#default_value' => $micro_type->label,
-    '#description' => t('The human-readable name of this micro type. This text will be displayed as part of the list on the <em>TO DO</em> page. It is recommended that this name begin with a capital letter and contain only letters, numbers, and spaces. This name must be unique.'),
+    '#default_value' => $type->name,
+    '#description' => t('The human-readable name of this micro type. This text will be displayed as part of the list on the <em>Add new micro</em> page. It is recommended that this name begin with a capital letter and contain only letters, numbers, and spaces. This name must be unique.'),
     '#required' => TRUE,
     '#size' => 30,
-    '#field_suffix' => ' <small id="edit-name-suffix">' . ($micro_type->isLocked() ? t('Machine name: @name', array('@name' => $micro_type->type)) : '&nbsp;') . '</small>',
   );
 
-  // Machine-readable type
   $form['type'] = array(
-    '#title' => t('Type'),
-    '#type' => 'textfield',
-    '#description' => t('Computer-readable type. Use only letters and numbers. This must also be unique.'),
-    '#required' => TRUE,
-    '#size' => 20,
-    '#default_value' => $micro_type->type,
+    '#type' => 'machine_name',
+    '#default_value' => $type->type,
+    '#maxlength' => 32,
+    '#disabled' => isset($type->type),
+    '#machine_name' => array(
+      'exists' => 'micro_type_load',
+    ),
+    '#description' => t('A unique machine-readable name for this micro type. It must only contain lowercase letters, numbers, and underscores. This name will be used for constructing the URL of the %micro-add page, in which underscores will be converted into hyphens.', array(
+      '%micro-add' => t('Add new micro'),
+    )),
   );
 
-  // If the micro is locked, we don't want people seeing or editing the
-  // machine-readable type: no point
-  if ($micro_type->isLocked()) {
-    $form['type']['#type'] = 'value';
-  }
+  $form['description'] = array(
+    '#title' => t('Description'),
+    '#type' => 'textarea',
+    '#default_value' => $type->description,
+    '#description' => t('Describe this micro type. The text will be displayed on the <em>Add new micro</em> page.'),
+  );
+
+  $form['additional_settings'] = array(
+    '#type' => 'vertical_tabs',
+    '#attached' => array(
+      'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
+    ),
+  );
+
+  $form['submission'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Submission form settings'),
+    '#collapsible' => TRUE,
+    '#group' => 'additional_settings',
+  );
+  /*
+   *$form['submission']['title_label'] = array(
+   *  '#title' => t('Title field label'),
+   *  '#type' => 'textfield',
+   *  '#default_value' => $type->title_label,
+   *  '#required' => TRUE,
+   *);
+   */
+  $form['submission']['help']  = array(
+    '#type' => 'textarea',
+    '#title' => t('Explanation or submission guidelines'),
+    '#default_value' => $type->help,
+    '#description' => t('This text will be displayed at the top of the page when creating or editing content of this type.'),
+  );
+  /*
+   *$form['workflow'] = array(
+   *  '#type' => 'fieldset',
+   *  '#title' => t('Publishing options'),
+   *  '#collapsible' => TRUE,
+   *  '#collapsed' => TRUE,
+   *  '#group' => 'additional_settings',
+   *);
+   *$form['workflow']['micro_options'] = array('#type' => 'checkboxes',
+   *  '#title' => t('Default options'),
+   *  '#default_value' => variable_get('micro_options_' . $type->type, array('status', 'promote')),
+   *  '#options' => array(
+   *    'status' => t('Published'),
+   *    'promote' => t('Promoted to front page'),
+   *    'sticky' => t('Sticky at top of lists'),
+   *    'revision' => t('Create new revision'),
+   *  ),
+   *  '#description' => t('Users with the <em>Administer micro</em> permission will be able to override these options.'),
+   *);
+   *$form['display'] = array(
+   *  '#type' => 'fieldset',
+   *  '#title' => t('Display settings'),
+   *  '#collapsible' => TRUE,
+   *  '#collapsed' => TRUE,
+   *  '#group' => 'additional_settings',
+   *);
+   *$form['display']['micro_submitted'] = array(
+   *  '#type' => 'checkbox',
+   *  '#title' => t('Display author and date information.'),
+   *  '#default_value' => variable_get('micro_submitted_' . $type->type, TRUE),
+   *  '#description' => t('Author username and publish date will be displayed.'),
+   *);
+   */
+  $form['base'] = array(
+    '#type' => 'value',
+    '#value' => $type->base,
+  );
+  /*
+   *$form['custom'] = array(
+   *  '#type' => 'value',
+   *  '#value' => $type->custom,
+   *);
+   */
+  /*
+   *$form['modified'] = array(
+   *  '#type' => 'value',
+   *  '#value' => $type->modified,
+   *);
+   */
+  /*
+   *$form['locked'] = array(
+   *  '#type' => 'value',
+   *  '#value' => $type->locked,
+   *);
+   */
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -106,8 +207,8 @@ function micro_type_form($form, &$form_state, $micro_type = NULL) {
     '#weight' => 40,
   );
 
-  if (!$micro_type->isLocked()) {
-    if (!empty($micro_type->type)) {
+  if ($type->module == 'micro') {
+    if (!empty($type->type)) {
       $form['actions']['delete'] = array(
         '#type' => 'submit',
         '#value' => t('Delete micro type'),
@@ -120,21 +221,154 @@ function micro_type_form($form, &$form_state, $micro_type = NULL) {
 }
 
 /**
- * Form API submit callback for micro_type_form
+ * Validates the micro type submission form generated by micro_type_form().
  */
-function micro_type_form_submit(&$form, &$form_state) {
-  // Grab micro_type back out of the $form array
-  $micro_type = $form_state['micro_type'];
+function micro_type_form_validate($form, &$form_state) {
+  $type = new stdClass();
+  $type->type = trim($form_state['values']['type']);
+  $type->name = trim($form_state['values']['name']);
+  $types = micro_type_get_names();
 
-  // Set the name and, if it's not set (and the type isn't locked)
-  // also set the machine-readable micro type
-  $micro_type->label = $form_state['values']['name'];
-  if (!$micro_type->isLocked() && empty($micro_type->type)) {
-    $micro_type->type = $form_state['values']['type'];
+  // 'theme' conflicts with theme_micro_form().
+  // '0' is invalid, since elsewhere we check it using empty().
+  if (in_array($type->type, array('0', 'theme'))) {
+    form_set_error('type', t("Invalid machine-readable name. Enter a name other than %invalid.", array('%invalid' => $type->type)));
   }
 
-  // Save and go back
-  $micro_type->save();
-  $form_state['redirect'] = 'admin/structure/micro';
+  $names = array_flip($types);
+
+  if (isset($names[$type->name]) && $names[$type->name] != $old_type) {
+    form_set_error('name', t('The human-readable name %name is already taken.', array('%name' => $type->name)));
+  }
 }
 
+/**
+ * Implements hook_form_submit().
+ */
+function micro_type_form_submit($form, &$form_state) {
+  $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
+
+  $type = micro_type_set_defaults();
+
+  $type->type = trim($form_state['values']['type']);
+  $type->name = trim($form_state['values']['name']);
+  $type->old_type = isset($form_state['values']['old_type']) ? $form_state['values']['old_type'] : $type->type;
+
+  $type->description = $form_state['values']['description'];
+  $type->help = $form_state['values']['help'];
+
+  $type->base = !empty($form_state['values']['base']) ? $form_state['values']['base'] : 'micro_content';
+  if (isset($form['#micro_type']->module)) {
+    $type->module = $form['#micro_type']->module;
+  }
+
+  if ($op == t('Delete micro type')) {
+    $form_state['redirect'] = 'admin/structure/micro/manage/' . str_replace('_', '-', $type->old_type) . '/delete';
+    return;
+  }
+
+  $variables = $form_state['values'];
+
+  // Remove everything that's been saved already - whatever's left is assumed
+  // to be a persistent variable.
+  foreach ($variables as $key => $value) {
+    if (isset($type->$key)) {
+      unset($variables[$key]);
+    }
+  }
+
+  unset($variables['form_token'], $variables['op'], $variables['submit'], $variables['delete'], $variables['reset'], $variables['form_id'], $variables['form_build_id']);
+
+  // Save or reset persistent variable values.
+  foreach ($variables as $key => $value) {
+    $variable_new = $key . '_' . $type->type;
+    $variable_old = $key . '_' . $type->old_type;
+
+    if (is_array($value)) {
+      $value = array_keys(array_filter($value));
+    }
+    variable_set($variable_new, $value);
+
+    if ($variable_new != $variable_old) {
+      variable_del($variable_old);
+    }
+  }
+
+  // Saving the micro type after saving the variables allows modules to act
+  // on those variables via hook_micro_type_insert().
+  $status = micro_type_save($type);
+
+  micro_types_rebuild();
+  menu_rebuild();
+  $t_args = array('%name' => $type->name);
+
+  if ($status == SAVED_UPDATED) {
+    drupal_set_message(t('The micro type %name has been updated.', $t_args));
+  }
+  elseif ($status == SAVED_NEW) {
+    micro_add_body_field($type);
+    drupal_set_message(t('The micro type %name has been added.', $t_args));
+    watchdog('micro', 'Added micro type %name.', $t_args, WATCHDOG_NOTICE, l(t('view'), 'admin/structure/micro'));
+  }
+
+  $form_state['redirect'] = 'admin/structure/micro';
+  return;
+}
+
+/**
+ * Resets all of the relevant fields of a module-defined micro type to their
+ * default values.
+ *
+ * @param $type
+ *   The micro type to reset. The micro type is passed back by reference with its
+ *   resetted values. If there is no module-defined info for this micro type,
+ *   then nothing happens.
+ */
+function micro_type_reset($type) {
+  $info_array = module_invoke_all('micro_info');
+  if (isset($info_array[$type->type])) {
+    $info_array[$type->type]['type'] = $type->type;
+    $info = micro_type_set_defaults($info_array[$type->type]);
+
+    foreach ($info as $field => $value) {
+      $type->$field = $value;
+    }
+  }
+}
+
+/**
+ * Menu callback; delete a single micro type.
+ */
+function micro_type_delete_confirm($form, &$form_state, $type) {
+  $form['type'] = array('#type' => 'value', '#value' => $type->type);
+  $form['name'] = array('#type' => 'value', '#value' => $type->name);
+
+  $message = t('Are you sure you want to delete the micro type %type?', array('%type' => $type->name));
+  $caption = '';
+
+  $num_micros = db_query("SELECT COUNT(*) FROM {micro} WHERE type = :type", array(':type' => $type->type))->fetchField();
+  if ($num_micros) {
+    $caption .= '<p>' . format_plural($num_micros, '%type is used by 1 piece of content on your site. If you remove this micro type, you will not be able to edit the %type micro and it may not display correctly.', '%type is used by @count pieces of content on your site. If you remove %type, you will not be able to edit the %type micro and it may not display correctly.', array('%type' => $type->name)) . '</p>';
+  }
+
+  $caption .= '<p>' . t('This action cannot be undone.') . '</p>';
+
+  return confirm_form($form, $message, 'admin/structure/micro', $caption, t('Delete'));
+}
+
+/**
+ * Process micro type delete confirm submissions.
+ */
+function micro_type_delete_confirm_submit($form, &$form_state) {
+  micro_type_delete($form_state['values']['type']);
+
+  $t_args = array('%name' => $form_state['values']['name']);
+  drupal_set_message(t('The micro type %name has been deleted.', $t_args));
+  watchdog('menu', 'Deleted micro type %name.', $t_args, WATCHDOG_NOTICE);
+
+  micro_types_rebuild();
+  menu_rebuild();
+
+  $form_state['redirect'] = 'admin/structure/micro';
+  return;
+}

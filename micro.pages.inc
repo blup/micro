@@ -248,7 +248,7 @@ function micro_delete_confirm($form, &$form_state, $micro) {
   // Always provide entity id in the same form key as in the entity edit form.
   $form['mid'] = array('#type' => 'value', '#value' => $micro->mid);
   return confirm_form($form,
-    t('Are you sure you want to delete @type %mid?', array('@type' => $micro->label, '%mid' => $micro->mid)),
+    t('Are you sure you want to delete @type %mid?', array('@type' => $micro->name, '%mid' => $micro->mid)),
     'micro/' . $micro->mid,
     t('This action cannot be undone.'),
     t('Delete'),
@@ -264,7 +264,7 @@ function micro_delete_confirm_submit($form, &$form_state) {
     $micro = micro_load($form_state['values']['mid']);
     micro_delete($form_state['values']['mid']);
     watchdog('content', '@type: deleted %mid.', array('@type' => $micro->type, '%mid' => $micro->mid));
-    drupal_set_message(t('@type %mid has been deleted.', array('@type' => $micro->label, '%mid' => $micro->mid)));
+    drupal_set_message(t('@type %mid has been deleted.', array('@type' => $micro->name, '%mid' => $micro->mid)));
   }
 
   $form_state['redirect'] = '<front>';
