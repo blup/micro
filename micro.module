@@ -1320,7 +1320,7 @@ function micro_get_micro_types($entity = NULL, $bundle = NULL, $account = NULL, 
 }
 
 /**
- * Collates all information on widget types and formatter types for micro items.
+ * Collates all information on input types and formatter types for micro items.
  *
  * @param $reset
  *   If TRUE, clear the cache. The information will be rebuilt from the database
@@ -1329,21 +1329,21 @@ function micro_get_micro_types($entity = NULL, $bundle = NULL, $account = NULL, 
  * @return
  *   If $reset is TRUE, nothing.
  *   If $reset is FALSE, an array containing the following elements:
- *   - 'widget types': Array of hook_micro_widget_info() results, keyed by
- *     widget_type. Each element has the following components: label, micro
- *     types, settings, and behaviors from hook_micro_widget_info(), as well
- *     as module, giving the module that exposes the widget type.
+ *   - 'input types': Array of hook_micro_input_info() results, keyed by
+ *     input_type. Each element has the following components: label, micro
+ *     types, settings, and behaviors from hook_micro_input_info(), as well
+ *     as module, giving the module that exposes the input type.
  *   - 'formatter types': Array of hook_micro_formatter_info() results, keyed by
  *     formatter_type. Each element has the following components: label, micro
  *     types, and behaviors from hook_micro_formatter_info(), as well as
  *     module, giving the module that exposes the formatter type.
  */
-function _micro_collate_types($reset = FALSE) {
+function _micro_collate_displays($reset = FALSE) {
   static $info;
 
   if ($reset) {
     $info = NULL;
-    variable_del("micro_view_types");
+    variable_del("micro_display_types");
     return;
   }
 
@@ -1353,23 +1353,23 @@ function _micro_collate_types($reset = FALSE) {
     }
     else {
       $info = array(
-        'widget types' => array(),
+        'input types' => array(),
         'formatter types' => array(),
       );
 
-      // Populate widget types.
-      foreach (module_implements('micro_widget_info') as $module) {
-        $widget_types = (array) module_invoke($module, 'micro_widget_info');
-        foreach ($widget_types as $name => $widget_info) {
+      // Populate input types.
+      foreach (module_implements('micro_input_info') as $module) {
+        $input_types = (array) module_invoke($module, 'micro_input_info');
+        foreach ($input_types as $name => $input_info) {
           // Provide defaults.
-          $widget_info += array(
+          $input_info += array(
             'settings' => array(),
           );
-          $info['widget types'][$name] = $widget_info;
-          $info['widget types'][$name]['module'] = $module;
+          $info['input types'][$name] = $input_info;
+          $info['input types'][$name]['module'] = $module;
         }
       }
-      drupal_alter('micro_widget_info', $info['widget types']);
+      drupal_alter('micro_input_info', $info['input types']);
 
       // Populate formatter types.
       foreach (module_implements('micro_formatter_info') as $module) {
@@ -1385,7 +1385,7 @@ function _micro_collate_types($reset = FALSE) {
       }
       drupal_alter('micro_formatter_info', $info['formatter types']);
 
-      variable_set("micro_view_types", $info);
+      variable_set("micro_display_types", $info);
     }
   }
 
@@ -1393,52 +1393,52 @@ function _micro_collate_types($reset = FALSE) {
 }
 
 /**
- * Returns information about micro widgets from hook_micro_widget_info().
+ * Returns information about micro input types from hook_micro_input_info().
  *
- * @param $widget_type
- *   (optional) A widget type name. If ommitted, all widget types will be
+ * @param $input_type
+ *   (optional) A input type name. If ommitted, all input types will be
  *   returned.
  *
  * @return
- *   Either a single widget type description, as provided by
- *   hook_micro_widget_info(), or an array of all existing widget types, keyed
- *   by widget type name.
+ *   Either a single input type description, as provided by
+ *   hook_micro_input_info(), or an array of all existing input types, keyed
+ *   by input type name.
  */
-function micro_widget_types($widget_type = NULL) {
-  $info = _micro_collate_types();
-  $widget_types = $info['widget types'];
-  if ($widget_type) {
-    if (isset($widget_types[$widget_type])) {
-      return $widget_types[$widget_type];
+function micro_input_types($input_type = NULL) {
+  $info = _micro_collate_displays();
+  $input_types = $info['input types'];
+  if ($input_type) {
+    if (isset($input_types[$input_type])) {
+      return $input_types[$input_type];
     }
   }
   else {
-    return $widget_types;
+    return $input_types;
   }
 }
 
 /**
- * Returns information about micro formatters from hook_micro_formatter_info().
+ * Returns information about micro displays from hook_micro_display_info().
  *
- * @param $formatter_type
- *   (optional) A formatter type name. If ommitted, all formatter types will be
+ * @param $display_type
+ *   (optional) A display type name. If ommitted, all display types will be
  *   returned.
  *
  * @return
- *   Either a single formatter type description, as provided by
- *   hook_micro_formatter_info(), or an array of all existing formatter types,
- *   keyed by formatter type name.
+ *   Either a single display type description, as provided by
+ *   hook_micro_display_info(), or an array of all existing display types,
+ *   keyed by display type name.
  */
-function micro_formatter_types($formatter_type = NULL) {
-  $info = _micro_collate_types();
-  $formatter_types = $info['formatter types'];
-  if ($formatter_type) {
-    if (isset($formatter_types[$formatter_type])) {
-      return $formatter_types[$formatter_type];
+function micro_display_types($display_type = NULL) {
+  $info = _micro_collate_displays();
+  $display_types = $info['display types'];
+  if ($display_type) {
+    if (isset($display_types[$display_type])) {
+      return $display_types[$display_type];
     }
   }
   else {
-    return $formatter_types;
+    return $display_types;
   }
 }
 
@@ -1555,6 +1555,34 @@ function micro_get_types($type = NULL) {
   return $types;
 }
 
+
+// theme($input_types[$micro_type->data['input']]['theme'], $form, $form_state?);
+/**
+ * Implements hook_micro_display_info()
+ */
+function micro_micro_display_info() {
+  return array(
+    'test_display' => array(
+      'label' => t('test display'),
+      'micro types' => array('status'),
+      'theme' => 'micro_test_display',
+    ),
+  );
+}
+
+/**
+ * Implements hook_micro_input_info()
+ */
+function micro_micro_input_info() {
+    return array(
+    'test_input' => array(
+      'label' => t('test input'),
+      'field types' => array('status'),
+      'settings' => array('size' => 60),
+      'theme' => 'micro_test_input',
+    ),
+  );
+}
 
 //======
 //FORMS.
