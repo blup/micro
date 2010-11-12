@@ -61,7 +61,7 @@ function theme_micro_add_list($variables) {
 function micro_add($type) {
   global $user;
 
-  $types = micro_get_micro_types();
+  $types = micro_type_get_types();
   $type = isset($type) ? str_replace('-', '_', $type) : NULL;
   // If a micro type has been specified, validate its existence.
   if (isset($types[$type])) {
