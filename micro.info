@@ -1,6 +1,6 @@
 ; $Id: micro.info,v 0.1 2011/01/01 04:20:00 blup Exp $
 name = Micro
-description = Micro blogging tool.
+description = Micro entity that attaches to other entities (or site)
 version = 7.x-1.0
 core = 7.x
 files[] = micro.module

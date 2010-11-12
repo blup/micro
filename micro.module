@@ -3,7 +3,7 @@
 
 /**
  * @file
- * Micro blogging tool
+ * Micro entity that attaches to other entities (or site)
  */
 
 /**
@@ -792,27 +792,12 @@ function micro_submit($micro) {
  *   A micro object.
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
- * @param $langcode
- *   (optional) A language code to use for rendering. Defaults to the global
- *   content language of the current request.
  *
  * @return
  *   An array as expected by drupal_render().
  */
-/*
- *function micro_view($micro, $view_mode = 'full', $langcode = NULL) {
- */
 function micro_view($micro, $view_mode = 'full') {
-  /*
-   *if (!isset($langcode)) {
-   *  $langcode = $GLOBALS['language_content']->language;
-   *}
-   */
-
   // Populate $micro->content with a render() array.
-  /*
-   *micro_build_content($micro, $view_mode, $langcode);
-   */
   micro_build_content($micro, $view_mode);
 
   $build = $micro->content;
@@ -823,9 +808,6 @@ function micro_view($micro, $view_mode = 'full') {
     '#theme' => 'micro',
     '#micro' => $micro,
     '#view_mode' => $view_mode,
-    /*
-     *'#language' => $langcode,
-     */
   );
 
   //TODO
@@ -869,20 +851,8 @@ function micro_view($micro, $view_mode = 'full') {
  *   A micro object.
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
- * @param $langcode
- *   (optional) A language code to use for rendering. Defaults to the global
- *   content language of the current request.
- */
-/*
- *function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
  */
 function micro_build_content($micro, $view_mode = 'full') {
-  /*
-   *if (!isset($langcode)) {
-   *  $langcode = $GLOBALS['language_content']->language;
-   *}
-   */
-
   // Remove previously built content, if exists.
   $micro->content = array();
 
@@ -898,9 +868,6 @@ function micro_build_content($micro, $view_mode = 'full') {
   // twice.
   field_attach_prepare_view('micro', array($micro->mid => $micro), $view_mode);
   entity_prepare_view('micro', array($micro->mid => $micro));
-  /*
-   *$micro->content += field_attach_view('micro', $micro, $view_mode, $langcode);
-   */
   $micro->content += field_attach_view('micro', $micro, $view_mode);
 
   // Always display a read more link on teasers because we have no way
@@ -922,9 +889,6 @@ function micro_build_content($micro, $view_mode = 'full') {
   );
 
   // Allow modules to make their own additions to the micro.
-  /*
-   *module_invoke_all('micro_view', $micro, $view_mode, $langcode);
-   */
   module_invoke_all('micro_view', $micro, $view_mode);
 }
 
@@ -1730,15 +1694,9 @@ function micro_page_view($micro) {
  *   View mode, e.g. 'full', 'teaser'...
  * @param $weight
  *   An integer representing the weight of the first micro in the list.
- * @param $langcode
- *   (optional) A language code to use for rendering. Defaults to the global
- *   content language of the current request.
  *
  * @return
  *   An array in the format expected by drupal_render().
- */
-/*
- *function micro_view_multiple($micros, $view_mode = 'teaser', $weight = 0, $langcode = NULL) {
  */
 function micro_view_multiple($micros, $view_mode = 'full', $weight = 0) {
   field_attach_prepare_view('micro', $micros, $view_mode);
@@ -1746,10 +1704,6 @@ function micro_view_multiple($micros, $view_mode = 'full', $weight = 0) {
   $build = array();
   dsm($micros);
   foreach ($micros as $micro) {
-    /*
-     *$build['micros'][$micro->nid] = micro_view($micro, $view_mode, $langcode);
-     */
-     dsm($micro);
     $build['micros'][$micro->mid] = micro_view($micro, $view_mode);
     $build['micros'][$micro->mid]['#weight'] = $weight;
     $weight++;
@@ -1757,6 +1711,7 @@ function micro_view_multiple($micros, $view_mode = 'full', $weight = 0) {
   $build['micros']['#sorted'] = TRUE;
   return $build;
 }
+
 
 //======
 //FORMS.
@@ -1827,9 +1782,6 @@ function micro_save_action($micro) {
 }
 
 
-
-
-
 /**
  * Implements hook_user_view().
  */
@@ -1893,379 +1845,6 @@ function micro_save_action($micro) {
  *}
  */
 
-/**
- * Saves a micro type to the database.
- *
- * @param $info
- *   The micro type to save, as an object.
- *
- * @return
- *   Status flag indicating outcome of the operation.
- */
-/*
- *function micro_type_save($info) {
- *  $is_existing = FALSE;
- *  $existing_type = !empty($info->old_type) ? $info->old_type : $info->type;
- *  $is_existing = (bool) db_query_range('SELECT 1 FROM {micro_type} WHERE type = :type', 0, 1, array(':type' => $existing_type))->fetchField();
- *  $type = micro_type_set_defaults($info);
- *
- *  $fields = array(
- *    'type' => (string) $type->type,
- *    'name' => (string) $type->name,
- *    'base' => (string) $type->base,
- *    'description' => (string) $type->description,
- *    'help' => (string) $type->help,
- *    'disabled' => (int) $type->disabled,
- *    'module' => $type->module,
- *  );
- *
- *  if ($is_existing) {
- *    db_update('micro_type')
- *      ->fields($fields)
- *      ->condition('type', $existing_type)
- *      ->execute();
- *
- *    if (!empty($type->old_type) && $type->old_type != $type->type) {
- *      field_attach_rename_bundle('micro', $type->old_type, $type->type);
- *    }
- *    module_invoke_all('micro_type_update', $type);
- *    $status = SAVED_UPDATED;
- *  }
- *  else {
- *    db_insert('micro_type')
- *      ->fields($fields)
- *      ->execute();
- *
- *    field_attach_create_bundle('micro', $type->type);
- *
- *    module_invoke_all('micro_type_insert', $type);
- *    $status = SAVED_NEW;
- *  }
- *
- *  // Clear the micro type cache.
- *  drupal_static_reset('_micro_types_build');
- *
- *  return $status;
- *}
- */
-
-
-/**
- * Deletes a micro type from the database.
- *
- * @param $type
- *   The machine-readable name of the micro type to be deleted.
- */
-/*
- *function micro_type_delete($type) {
- *  $info = micro_type_get_type($type);
- *  db_delete('micro_type')
- *    ->condition('type', $type)
- *    ->execute();
- *  field_attach_delete_bundle('micro', $type);
- *  module_invoke_all('micro_type_delete', $info);
- *
- *  // Clear the micro type cache.
- *  drupal_static_reset('_micro_types_build');
- *}
- */
-/**
- * Save changes to a micro or add a new micro.
- *
- * @param $micro
- *   The $micro object to be saved. If $micro->mid is
- *   omitted (or $micro->is_new is TRUE), a new micro will be added.
- */
-/*
- *function micro_save($micro) {
- *  $transaction = db_transaction();
- *
- *  try {
- *    field_attach_presave('micro', $micro);
- *    global $user;
- *
- *    // Determine if we will be inserting a new micro.
- *    if (!isset($micro->is_new)) {
- *      $micro->is_new = empty($micro->mid);
- *    }
- *
- *    // Set the timestamp fields.
- *    if (empty($micro->created)) {
- *      $micro->created = REQUEST_TIME;
- *    }
- *
- *    $micro->timestamp = REQUEST_TIME;
- *    $update_micro = TRUE;
- *
- *    // Let modules modify the micro before it is saved to the database.
- *    module_invoke_all('micro_presave', $micro);
- *
- *    // Save the micro.
- *    if ($micro->is_new) {
- *      // For new micros, save new record.
- *      drupal_write_record('micro', $micro);
- *      $op = 'insert';
- *    }
- *    else {
- *      // For existing micros, update the micro record which matches the value of
- *      // $micro->mid.
- *      drupal_write_record('micro', $micro, 'mid');
- *      $op = 'update';
- *    }
- *
- *    // Call the micro specific callback (if any). This can be
- *    // micro_invoke($micro, 'insert') or
- *    // micro_invoke($micro, 'update').
- *    micro_invoke($micro, $op);
- *
- *    // Save fields.
- *    $function = "field_attach_$op";
- *    $function('micro', $micro);
- *
- *    module_invoke_all('micro_' . $op, $micro);
- *    module_invoke_all('entity_' . $op, $micro, 'micro');
- *
- *    // Update the micro access table for this micro. There's no need to delete
- *    // existing records if the micro is new.
- *    $delete = $op == 'update';
- *    micro_access_acquire_grants($micro, $delete);
- *
- *    // Clear internal properties.
- *    unset($micro->is_new);
- *
- *    // Ignore slave server temporarily to give time for the
- *    // saved micro to be propagated to the slave.
- *    db_ignore_slave();
- *  }
- *  catch (Exception $e) {
- *    $transaction->rollback('micro');
- *    watchdog_exception('micro', $e);
- *    throw $e;
- *  }
- *}
- */
-
-/**
- * Delete a micro.
- *
- * @param $mid
- *   A micro ID.
- */
-/*
- *function micro_delete($mid) {
- *  micro_delete_multiple(array($mid));
- *}
- */
-
-/**
- * Delete multiple micros.
- *
- * @param $mids
- *   An array of micro IDs.
- */
-/*
- *function micro_delete_multiple($mids) {
- *  if (!empty($mids)) {
- *    $micros = micro_load_multiple($mids, array());
- *
- *    foreach ($micros as $mid => $micro) {
- *      // Call the micro-specific callback (if any):
- *      micro_invoke($micro, 'delete');
- *      module_invoke_all('micro_delete', $micro);
- *      module_invoke_all('entity_delete', $micro, 'micro');
- *      field_attach_delete('micro', $micro);
- *
- *      // Remove this micro from the search index if needed.
- *      // This code is implemented in micro module rather than in search module,
- *      // because micro module is implementing search module's API, not the other
- *      // way around.
- *      if (module_exists('search')) {
- *        search_reindex($mid, 'micro');
- *      }
- *    }
- *
- *    // Delete after calling hooks so that they can query micro tables as needed.
- *    db_delete('micro')
- *      ->condition('mid', $mids, 'IN')
- *      ->execute();
- *    db_delete('micro_revision')
- *      ->condition('mid', $mids, 'IN')
- *      ->execute();
- *    db_delete('history')
- *      ->condition('mid', $mids, 'IN')
- *      ->execute();
- *    db_delete('micro_access')
- *      ->condition('mid', $mids, 'IN')
- *      ->execute();
- *
- *    // Clear the page and block and micro_load_multiple caches.
- *    cache_clear_all();
- *    entity_get_controller('micro')->resetCache();
- *  }
- *}
- */
-
-/**
- * Implements hook_micro_load()
- */
-/*
- *function micro_micro_load($micros) {
- *  $types = micro_get_types();
- *  // Load the micro's label.
- *  foreach ($micros as $micro) {
- *    if (isset($types[$micro->type])) {
- *      $micro->label = $types[$micro->type]->label;
- *    }
- *  }
- *}
- */
-
-/**
- * Implements hook_link().
- *
- * This hook does not exist in Drupal 7, it is called from micro_node_view() and
- * micro_comment_view() functions.
- */
-/*
- *function micro_link($type, $object = NULL, $teaser = FALSE) {
- *  if (!isset($object) || !micro_fetch_definition($type)) {
- *    return;
- *  }
- *  global $user;
- *
- *  // Get all possible micro_types for this content-type.
- *  $micro_types = micro_get_micro_types($type);
- *
- *  foreach ($micro_types as $micro) {
- *    $content_id = $micro->get_content_id($object);
- *
- *    if (!$micro->uses_hook_link($teaser)) {
- *      // micro is not configured to show its link here.
- *      continue;
- *    }
- *    if (!$micro->access($content_id) && (!$micro->is_microged($content_id) || !$micro->access($content_id, 'micro'))) {
- *      // User has no permission to use this micro or micro does not apply to this
- *      // content. The link is not skipped if the user has "micro" access but
- *      // not "unmicro" access (this way the unmicro denied message is shown).
- *      continue;
- *    }
- *
- *    // The micro links are actually fully rendered theme functions.
- *    // The HTML attribute is set to TRUE to allow whatever the themer desires.
- *    $links['micro-' . $micro->name] = array(
- *      'title' => $micro->theme($micro->is_microged($content_id) ? 'unmicro' : 'micro', $content_id),
- *      'html' => TRUE,
- *    );
- *  }
- *
- *  if (isset($links)) {
- *    return $links;
- *  }
- *}
- */
-
-/**
- * Gets an array of all micro types, keyed by the type name.
- *
- * @param $type
- *   If set, the type with the given name is returned.
- * @return MicroType[]
- *   Depending whether $type isset, an array of micro types or a single one.
- */
-/*
- *function micro_get_types($type = NULL) {
- *  $types = entity_load('micro_type', isset($type) ? array($type) : FALSE);
- *  if (isset($type)) {
- *    return isset($types[$type]) ? $types[$type] : FALSE;
- *  }
- *  return $types;
- *}
- */
-/*
- *function micro_link($entity, $bundle = NULL, $object = NULL, $display = FALSE) {
- *  if (!isset($object) || !micro_fetch_definition($type)) {
- *    return;
- *  }
- *  global $user;
- *
- *  // Get all possible micro_types for this content-type.
- *  $micro_types = micro_get_micro_types($type);
- *
- *  foreach ($micro_types as $micro) {
- *    $content_id = $micro->get_content_id($object);
- *
- *    if (!$micro->uses_hook_link($teaser)) {
- *      // micro is not configured to show its link here.
- *      continue;
- *    }
- *
- *    // The micro links are actually fully rendered theme functions.
- *    // The HTML attribute is set to TRUE to allow whatever the themer desires.
- *    $links['micro-' . $micro->name] = array(
- *      'title' => $micro->theme($micro->is_microged($content_id) ? 'unmicro' : 'micro', $content_id),
- *      'html' => TRUE,
- *    );
- *  }
- *
- *  if (isset($links)) {
- *    return $links;
- *  }
- *}
- */
-
-/**
- * Implements hook_micro_link().
- *
- * When micro uses a link type provided by this module, it will call this
- * implementation of hook_micro_link(). It returns a single link's attributes,
- * using the same structure as hook_link(). Note that "title" is provided by
- * the micro configuration if not specified here.
- *
- * @param $micro
- *   The full micro object of for the micro link being generated.
- * @param $action
- *   The action this link will perform. Either 'micro' or 'unmicro'.
- * @param $content_id
- *   The ID of the node, comment, user, or other object being microged.
- * @return
- *   An array defining properties of the link.
- */
-/*
- *function micro_micro_link($micro, $action, $content_id) {
- *  $token = micro_get_token($content_id);
- *  return array(
- *    'href' => 'micro/' . ($micro->link_type == 'confirm' ? 'confirm/' : '') ."$action/$micro->name/$content_id",
- *    'query' => drupal_get_destination() + ($micro->link_type == 'confirm' ? array() : array('token' => $token)),
- *  );
- *}
- *
- */
-/**
- * Implements hook_micro_link_types().
- */
-/*
- *function micro_micro_link_types() {
- *  return array(
- *    'toggle' => array(
- *      'title' => t('JavaScript toggle'),
- *      'description' => t('An AJAX request will be made and degrades to type "Normal link" if JavaScript is not available.'),
- *    ),
- *    'normal' => array(
- *      'title' => t('Normal link'),
- *      'description' => t('A normal non-JavaScript request will be made and the current page will be reloaded.'),
- *    ),
- *    'confirm' => array(
- *      'title' => t('Confirmation form'),
- *      'description' => t('The user will be taken to a confirmation form on a separate page to confirm the micro.'),
- *      'options' => array(
- *        'micro_confirmation' => '',
- *        'unmicro_confirmation' => '',
- *      ),
- *    ),
- *  );
- *}
- */
-
 //TODO - Check if Devel generate integration is needed
 //TODO - Check if Rules integration is needed
 //TODO - Blocks
@@ -2283,14 +1862,3 @@ function micro_save_action($micro) {
 //TODO - micro_load_by_user vs micro_load_from_entity
 //TODO - nojs for ajax form
 //TODO - optional redirect + disabled for site micros
-
-/*
- *hook_micro_widget($entity, $bundle, $display) {
- *  $formatters['ajax_form'] = array(
- *    'name' => 'Ajax Form',
- *    'value' => theme('micro_ajax_form', $entity, $bundle, $display),
- *    'types' => array('status', 'chat') // empty = all
- *  );
- *}
- */
-

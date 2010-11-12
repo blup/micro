@@ -84,20 +84,6 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
 
-  /*
-   *foreach (entity_get_info() as $entity_type => $entity_info) {
-   *  dsm($entity_type);
-   *  if ($entity_info['fieldable']) {
-   *    dsm($entity_info);
-   *    foreach ($entity_info['bundles'] as $bundle_name => $bundle_info) {
-   *      dsm($bundle_info);
-   *      if (isset($bundle_info['admin'])) {
-   *        dsm($bundle_info['admin']);
-   *      }
-   *    }
-   *  }
-   *}
-   */
   // Make the type object available to implementations of hook_form_alter.
   $form['#micro_type'] = $type;
 
@@ -139,15 +125,19 @@ function micro_type_form($form, &$form_state, $type = NULL) {
       foreach ($data['bundles'] as $bundle=>$info) {
        $entities[$entity]['bundles'][$bundle] = $info['label'];
       }
+      foreach ($data['view modes'] as $mode=>$info) {
+       $entities[$entity]['modes'][$mode] = $info['label'];
+      }
     }
   }
 
-  $selected = isset($form_state['values']['entity']) ? $form_state['values']['entity'] : key($options_entity);
+  $selected = isset($type->entity) ? $type->entity : (isset($form_state['values']['entity']) ? $form_state['values']['entity'] : key($options_entity));
   $form['entity'] = array(
     '#type' => 'select',
     '#title' => t('Entity'),
     '#options' => $options_entity,
     '#default_value' => $selected,
+    '#disabled' => isset($type->entity),
     '#ajax' => array(
       'callback' => 'micro_dependent_dropdown_callback',
       'wrapper' => 'ajax-replace',
@@ -158,56 +148,83 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#type' => 'checkboxes',
     '#title' => t('Bundles'),
     '#prefix' => '<div id="ajax-replace">',
-    '#options' => _micro_get_bundle_options($entities, $selected),
-    '#default_value' => isset($form_state['values']['bundles']) ? $form_state['values']['bundles'] : '',
+    '#options' => _micro_get_bundle_options($entities, isset($type->entity) ? $type->entity : (isset($form_state['values']['entity']) ? $form_state['values']['entity'] : $selected)),
+    '#default_value' => isset($type->bundles) ? $type->bundles : (isset($form_state['values']['bundles']) ? $form_state['values']['bundles'] : array('site')),
   );
-  //TODO - check type if set (after first submit)
-  //TODO - force NOT simple page if other than site
-  //TODO - one for each view mode
-  $form['display'] = array(
-    '#type' => 'select',
-    '#title' => t('Display type'),
-    '#options' => _micro_get_display_options($entities, $selected, $form_state['values']['type']),
-    '#default_value' => isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display',
-  );
-  //TODO - check type if set (after first submit)
-  //TODO - force NOT simple page if other than site
-  //TODO - one for each view mode
-  $form['input'] = array(
-    '#type' => 'select',
-    '#title' => t('Input type'),
+
+  $form['format'] = array(
+    '#title' => t("Display types"),
     '#suffix' => '</div>',
-    '#options' => _micro_get_input_options($entities, $selected, $form_state['values']['type']),
-    '#default_value' => isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input',
-  );
-
-  $form['additional_settings'] = array(
-    '#type' => 'vertical_tabs',
-    '#attached' => array(
-      'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
-    ),
-  );
-
-  $form['submission'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Submission form settings'),
-    '#collapsible' => TRUE,
-    '#group' => 'additional_settings',
+    '#description' => t('How the micro form and items will be displayed on the attached entity.'),
   );
-  /*
-   *$form['submission']['title_label'] = array(
-   *  '#title' => t('Title field label'),
-   *  '#type' => 'textfield',
-   *  '#default_value' => $type->title_label,
-   *  '#required' => TRUE,
-   *);
-   */
-  $form['submission']['help']  = array(
-    '#type' => 'textarea',
-    '#title' => t('Explanation or submission guidelines'),
-    '#default_value' => $type->help,
-    '#description' => t('This text will be displayed at the top of the page when creating or editing content of this type.'),
-  );
+  //TODO - check type if set (after first submit)
+  //TODO - force NOT simple page if other than site
+  if ((isset($type->entity) && $type->entity != 'site') || (isset($form_state['values']['entity']) && $form_state['values']['entity'] != 'site')) {
+    foreach ($entities[isset($type->entity) ? $type->entity : $form_state['values']['entity']]['modes'] as $mode=>$name) {
+      $form['format'][$mode] = array(
+        '#title' => t('Format for view mode "@name"', array('@name' => $name)),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#description' => t('How the micro form and items will be displayed on the attached entity.'),
+      );
+      $form['format'][$mode]['display_' . $mode] = array(
+        '#type' => 'select',
+        '#title' => t('Display type'),
+        '#options' => _micro_get_display_options($entities, $selected, isset($type->type) ? $type->type : (isset($form_state['values']['type']) ? $form['values']['type'] : null)),
+        '#default_value' => isset($type->data) ? $type->data['format']['display_' . $mode] : (isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display'),
+      );
+      //TODO - check type if set (after first submit)
+      //TODO - force NOT simple page if other than site
+      $form['format'][$mode]['input_' . $mode] = array(
+        '#type' => 'select',
+        '#title' => t('Input type'),
+        '#options' => _micro_get_input_options($entities, $selected, isset($type->type) ? $type->type : (isset($form_state['values']['type']) ? $form['values']['type'] : null)),
+        '#default_value' => isset($type->data) ? $type->data['format']['input_' . $mode] : (isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input'),
+      );
+    }
+  }
+  else {
+    $form['format']['display'] = array(
+      '#type' => 'select',
+      '#title' => t('Display type'),
+      '#options' => _micro_get_display_options($entities, $selected, isset($form_state['values']['type']) ? $form['values']['type'] : null),
+      '#default_value' => isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display',
+      '#disabled' => TRUE,
+    );
+    //TODO - check type if set (after first submit)
+    //TODO - force NOT simple page if other than site
+    $form['format']['input'] = array(
+      '#type' => 'select',
+      '#title' => t('Input type'),
+      '#options' => _micro_get_input_options($entities, $selected, isset($form_state['values']['type']) ? $form['values']['type'] : null),
+      '#default_value' => isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input',
+      '#disabled' => TRUE,
+    );
+  }
+
+/*
+ *  $form['additional_settings'] = array(
+ *    '#type' => 'vertical_tabs',
+ *    '#attached' => array(
+ *      'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
+ *    ),
+ *  );
+ *
+ *  $form['submission'] = array(
+ *    '#type' => 'fieldset',
+ *    '#title' => t('Submission form settings'),
+ *    '#collapsible' => TRUE,
+ *    '#group' => 'additional_settings',
+ *  );
+ *  $form['submission']['help']  = array(
+ *    '#type' => 'textarea',
+ *    '#title' => t('Explanation or submission guidelines'),
+ *    '#default_value' => $type->help,
+ *    '#description' => t('This text will be displayed at the top of the page when creating or editing content of this type.'),
+ *  );
+ */
   /*
    *$form['workflow'] = array(
    *  '#type' => 'fieldset',
@@ -246,18 +263,6 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#value' => $type->base,
   );
   /*
-   *$form['custom'] = array(
-   *  '#type' => 'value',
-   *  '#value' => $type->custom,
-   *);
-   */
-  /*
-   *$form['modified'] = array(
-   *  '#type' => 'value',
-   *  '#value' => $type->modified,
-   *);
-   */
-  /*
    *$form['locked'] = array(
    *  '#type' => 'value',
    *  '#value' => $type->locked,
@@ -290,7 +295,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
  * @return renderable array
  */
 function micro_dependent_dropdown_callback($form, $form_state) {
-  return array($form['bundles'], $form['display'], $form['input']);
+  return array($form['bundles'], $form['format']);
 }
 
 /**
@@ -301,13 +306,9 @@ function micro_dependent_dropdown_callback($form, $form_state) {
  * @return array of options
  */
 function _micro_get_bundle_options($entities, $selected) {
+  $options = array();
   $selected == 'site' ? $options = array('site' => t('Site')) : $options = $entities[$selected]['bundles'];
-  if (isset($options)) {
-    return $options;
-  }
-  else {
-    return array();
-  }
+  return $options;
 }
 
 /**
@@ -396,8 +397,11 @@ function micro_type_form_submit($form, &$form_state) {
     }
   }
   $type->bundles = $form_state['values']['bundles'];
-  $data['input'] = $form_state['values']['input'];
-  $data['display'] = $form_state['values']['display'];
+  foreach ($form_state['values'] as $key=>$value) {
+    if (substr($key, 0, 5) == 'input' || substr($key, 0, 7) == 'display') {
+      $data['format'][$key] = $value;
+    }
+  }
   $type->data = $data;
 
   $type->base = !empty($form_state['values']['base']) ? $form_state['values']['base'] : 'micro_content';
