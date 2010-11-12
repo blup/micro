@@ -78,67 +78,69 @@ function micro_menu() {
     'file' => 'micro.admin.inc',
   );
   // Tabs begin here.
-  $items['admin/content/micro/new'] = array(
-    'title' => 'Published comments',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
-  );
-  $items['admin/content/micro/approval'] = array(
-    'title' => 'Unapproved comments',
-    'title callback' => 'comment_count_unpublished',
-    'page arguments' => array('approval'),
-    'access arguments' => array('administer comments'),
-    'type' => MENU_LOCAL_TASK,
-  );
+  /*
+   *$items['admin/content/micro/new'] = array(
+   *  'title' => 'Published comments',
+   *  'type' => MENU_DEFAULT_LOCAL_TASK,
+   *  'weight' => -10,
+   *);
+   *$items['admin/content/micro/approval'] = array(
+   *  'title' => 'Unapproved comments',
+   *  'title callback' => 'comment_count_unpublished',
+   *  'page arguments' => array('approval'),
+   *  'access arguments' => array('administer comments'),
+   *  'type' => MENU_LOCAL_TASK,
+   *);
+   */
   $items['admin/structure/micro'] = array(
-    'title' => 'Content types',
+    'title' => 'Micro types',
     'description' => 'Manage content types, including default status, front page promotion, comment settings, etc.',
     'page callback' => 'micro_overview_types',
     'access arguments' => array('administer content types'),
-    'file' => 'content_types.inc',
+    'file' => 'micro.admin.inc',
   );
   $items['admin/structure/micro/list'] = array(
-    'title' => 'List',
+    'title' => 'List micro types',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
   );
   $items['admin/structure/micro/add'] = array(
-    'title' => 'Add content type',
+    'title' => 'Add micro type',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('micro_type_form'),
-    'access arguments' => array('administer content types'),
+    'access arguments' => array('administer micro types'),
     'type' => MENU_LOCAL_ACTION,
-    'file' => 'content_types.inc',
+    'file' => 'micro.admin.inc',
   );
   $items['admin/structure/micro/manage/%micro_type'] = array(
-    'title' => 'Edit content type',
+    'title' => 'Edit micro type',
     'title callback' => 'micro_type_page_title',
     'title arguments' => array(4),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('micro_type_form', 4),
-    'access arguments' => array('administer content types'),
-    'file' => 'content_types.inc',
+    'access arguments' => array('administer micro types'),
+    'file' => 'micro.admin.inc',
   );
   $items['admin/structure/types/manage/%micro_type/edit'] = array(
-    'title' => 'Edit',
+    'title' => 'Edit micro type',
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
   $items['admin/structure/types/manage/%micro_type/delete'] = array(
-    'title' => 'Delete',
+    'title' => 'Delete micro type',
     'page arguments' => array('micro_type_delete_confirm', 4),
-    'access arguments' => array('administer content types'),
-    'file' => 'content_types.inc',
+    'access arguments' => array('administer micro types'),
+    'file' => 'micro.admin.inc',
   );
 
   $items['micro'] = array(
     'page callback' => 'micro_page_default',
-    'access arguments' => array('access content'),
+    'access arguments' => array('access micro items'),
     // Required to make 'micro/add' appear on the top-level of 'navigation' menu.
     'menu_name' => '',
     'type' => MENU_CALLBACK,
   );
   $items['micro/add'] = array(
-    'title' => 'Add content',
+    'title' => 'Add micro item',
     'page callback' => 'micro_add_page',
     'access callback' => '_micro_add_access',
     'menu_name' => 'navigation',
@@ -206,50 +208,6 @@ function micro_menu() {
     'context' => MENU_CONTEXT_INLINE,
     'file' => 'micro.pages.inc',
   );
-
-
-  // Micro types admin UI
-  $items['admin/structure/micro'] = array(
-    'title' => 'Micro types',
-    'description' => 'Manage micros, including fields, permissions, visibility.',
-    'page callback' => 'micro_overview_types',
-    'access arguments' => array('administer micros'),
-    'file' => 'micro.admin.inc',
-  );
-  $items['admin/structure/micro/list'] = array(
-    'title' => 'List',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
-  );
-  $items['admin/structure/micro/add'] = array(
-    'title' => 'Add a micro type',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('micro_type_form'),
-    'access arguments' => array('administer micros'),
-    'type' => MENU_LOCAL_ACTION,
-    'file' => 'micro.admin.inc',
-  );
-  // Individual micro types admin UI
-  $items['admin/structure/micro/manage/%micro_type'] = array(
-    'title' => 'Edit micro type',
-    'title callback' => 'micro_type_page_title',
-    'title arguments' => array(4),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('micro_type_form', 4),
-    'access arguments' => array('administer micros'),
-    'file' => 'micro.admin.inc',
-  );
-  $items['admin/structure/micro/manage/%micro_type/edit'] = array(
-    'title' => 'Edit',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-  );
-  $items['admin/structure/micros/manage/%micro_type/delete'] = array(
-    'title' => 'Delete',
-    'page arguments' => array('node_type_delete_confirm', 4),
-    'access arguments' => array('administer content types'),
-    'type' => MENU_CALLBACK,
-    'file' => 'content_types.inc',
-  );
   return $items;
 }
 
@@ -267,6 +225,16 @@ function micro_theme() {
   );
 }
 /**
+ * Theme callback for creating and editing micros.
+ */
+function _micro_custom_theme() {
+  // Use the administration theme if the site is configured to use it for
+  // micros.
+  if (variable_get('micro_admin_theme')) {
+    return variable_get('admin_theme');
+  }
+}
+/**
  * Implements hook_entity_info()
  * TODO - check
  */
@@ -277,6 +245,7 @@ function micro_entity_info() {
       'entity class' => 'Micro',
       'controller class' => 'EntityAPIController',
       'base table' => 'micro',
+      'uri callback' => 'micro_uri',
       'fieldable' => TRUE,
       'view modes' => array(
         'account' => array(
@@ -313,35 +282,22 @@ function micro_entity_info() {
 
   // Bundles must provide a human readable name so we can create help and error
   // messages, and the path to attach Field admin pages to.
-  foreach (micro_type_get_names() as $type => $name) {
-    $return['micro']['bundles'][$type] = array(
-      'label' => $name,
-      'admin' => array(
-        'path' => 'admin/structure/micro/manage/%micro_type',
-        'real path' => 'admin/structure/micro/manage/' . str_replace('_', '-', $type),
-        'bundle argument' => 4,
-        'access arguments' => array('administer micro types'),
-      ),
-    );
-  }
+  /*
+   *foreach (micro_type_get_names() as $type => $name) {
+   *  $return['micro']['bundles'][$type] = array(
+   *    'label' => $name,
+   *    'admin' => array(
+   *      'path' => 'admin/structure/micro/manage/%micro_type',
+   *      'real path' => 'admin/structure/micro/manage/' . str_replace('_', '-', $type),
+   *      'bundle argument' => 4,
+   *      'access arguments' => array('administer micro types'),
+   *    ),
+   *  );
+   *}
+   */
 
   return $return;
 }
-/**
- * Implement hook_entity_info_alter().
- *
- * Use this hook to specify micro bundles to avoid a recursion, as loading
- * the micro types needs the entity info too.
- */
-
-function micro_entity_info_alter(&$entity_info) {
-  foreach (micro_type_get_types() as $name => $info) {
-    $entity_info['micro']['bundles'][$name] = array(
-      'label' => $info->name,
-    );
-  }
-}
-
 /**
  * Implements hook_comment_view().
  */
@@ -360,6 +316,7 @@ function micro_node_view($node, $view_mode) {
   foreach ($displays as $key=>$value) {
     $node->content[$key] = $value;
   }
+  dsm($node);
 }
 
 /**
@@ -664,6 +621,25 @@ class MicroType extends EntityDBExtendable {
 }
 
 /**
+ * Implements hook_entity_info_alter().
+ *
+ * Use this hook to specify profile bundles to avoid a recursion, as loading
+ * the profile types needs the entity info too.
+ */
+function micro_entity_info_alter(&$entity_info) {
+  foreach (micro_type_get_types() as $type => $info) {
+    $entity_info['micro']['bundles'][$type] = array(
+      'label' => $info->name,
+      'admin' => array(
+        'path' => 'admin/structure/micro/manage/%micro_type',
+        'real path' => 'admin/structure/micro/manage/' . str_replace('_', '-', $type),
+        'bundle argument' => 4,
+        'access arguments' => array('administer micro'),
+      ),
+    );
+  }
+}
+/**
  * Implements hook_default_micro_type().
  */
 function micro_default_micro_type() {
@@ -823,13 +799,21 @@ function micro_submit($micro) {
  * @return
  *   An array as expected by drupal_render().
  */
-function micro_view($micro, $view_mode = 'full', $langcode = NULL) {
-  if (!isset($langcode)) {
-    $langcode = $GLOBALS['language_content']->language;
-  }
+/*
+ *function micro_view($micro, $view_mode = 'full', $langcode = NULL) {
+ */
+function micro_view($micro, $view_mode = 'full') {
+  /*
+   *if (!isset($langcode)) {
+   *  $langcode = $GLOBALS['language_content']->language;
+   *}
+   */
 
   // Populate $micro->content with a render() array.
-  micro_build_content($micro, $view_mode, $langcode);
+  /*
+   *micro_build_content($micro, $view_mode, $langcode);
+   */
+  micro_build_content($micro, $view_mode);
 
   $build = $micro->content;
   // We don't need duplicate rendering info in micro->content.
@@ -839,16 +823,21 @@ function micro_view($micro, $view_mode = 'full', $langcode = NULL) {
     '#theme' => 'micro',
     '#micro' => $micro,
     '#view_mode' => $view_mode,
-    '#language' => $langcode,
+    /*
+     *'#language' => $langcode,
+     */
   );
 
+  //TODO
   // Add contextual links for this micro, except when the micro is already being
   // displayed on its own page. Modules may alter this behavior (for example,
   // to restrict contextual links to certain view modes) by implementing
   // hook_micro_view_alter().
-  if (!empty($micro->mid) && !($view_mode == 'full' && micro_is_page($micro))) {
-    $build['#contextual_links']['micro'] = array('micro', array($micro->mid));
-  }
+  /*
+   *if (!empty($micro->mid) && !($view_mode == 'full' && micro_is_page($micro))) {
+   *  $build['#contextual_links']['micro'] = array('micro', array($micro->mid));
+   *}
+   */
 
   // Allow modules to modify the structured micro.
   drupal_alter('micro_view', $build);
@@ -884,10 +873,15 @@ function micro_view($micro, $view_mode = 'full', $langcode = NULL) {
  *   (optional) A language code to use for rendering. Defaults to the global
  *   content language of the current request.
  */
-function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
-  if (!isset($langcode)) {
-    $langcode = $GLOBALS['language_content']->language;
-  }
+/*
+ *function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
+ */
+function micro_build_content($micro, $view_mode = 'full') {
+  /*
+   *if (!isset($langcode)) {
+   *  $langcode = $GLOBALS['language_content']->language;
+   *}
+   */
 
   // Remove previously built content, if exists.
   $micro->content = array();
@@ -904,18 +898,23 @@ function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
   // twice.
   field_attach_prepare_view('micro', array($micro->mid => $micro), $view_mode);
   entity_prepare_view('micro', array($micro->mid => $micro));
-  $micro->content += field_attach_view('micro', $micro, $view_mode, $langcode);
+  /*
+   *$micro->content += field_attach_view('micro', $micro, $view_mode, $langcode);
+   */
+  $micro->content += field_attach_view('micro', $micro, $view_mode);
 
   // Always display a read more link on teasers because we have no way
   // to know when a teaser view is different than a full view.
   $links = array();
-  if ($view_mode == 'teaser') {
-    $links['micro-readmore'] = array(
-      'title' => t('Read more'),
-      'href' => 'micro/' . $micro->mid,
-      'attributes' => array('rel' => 'tag', 'title' => strip_tags($micro->title))
-    );
-  }
+  /*
+   *if ($view_mode == 'teaser') {
+   *  $links['micro-readmore'] = array(
+   *    'title' => t('Read more'),
+   *    'href' => 'micro/' . $micro->mid,
+   *    'attributes' => array('rel' => 'tag', 'title' => strip_tags($micro->title))
+   *  );
+   *}
+   */
   $micro->content['links'] = array(
     '#theme' => 'links__micro',
     '#links' => $links,
@@ -923,7 +922,10 @@ function micro_build_content($micro, $view_mode = 'full', $langcode = NULL) {
   );
 
   // Allow modules to make their own additions to the micro.
-  module_invoke_all('micro_view', $micro, $view_mode, $langcode);
+  /*
+   *module_invoke_all('micro_view', $micro, $view_mode, $langcode);
+   */
+  module_invoke_all('micro_view', $micro, $view_mode);
 }
 
 /**
@@ -1055,6 +1057,48 @@ function micro_access($op, $micro, $account = NULL) {
   return FALSE;
 }
 
+/**
+ * Implements hook_micro_access().
+ */
+function micro_micro_access($micro, $op, $account) {
+  $type = is_string($micro) ? $micro : $micro->type;
+
+  if (in_array($type, micro_type_get_types())) {
+    if ($op == 'create' && user_access('create ' . $type . ' content', $account)) {
+      return MICRO_ACCESS_ALLOW;
+    }
+
+    if ($op == 'update') {
+      if (user_access('edit any ' . $type . ' content', $account) || (user_access('edit own ' . $type . ' content', $account) && ($account->uid == $micro->uid))) {
+        return MICRO_ACCESS_ALLOW;
+      }
+    }
+
+    if ($op == 'delete') {
+      if (user_access('delete any ' . $type . ' content', $account) || (user_access('delete own ' . $type . ' content', $account) && ($account->uid == $micro->uid))) {
+        return MICRO_ACCESS_ALLOW;
+      }
+    }
+  }
+
+  return MICRO_ACCESS_IGNORE;
+}
+
+function _micro_add_access() {
+  $types = micro_type_get_types();
+  foreach ($types as $type) {
+    if (micro_hook($type->type, 'form') && micro_access('create', $type->type)) {
+      return TRUE;
+    }
+  }
+  if (user_access('administer micro types')) {
+    // There are no content types defined that the user has permission to create,
+    // but the user does have the permission to administer the content types, so
+    // grant them access to the page anyway.
+    return TRUE;
+  }
+  return FALSE;
+}
 function micro_load_from_type($type, $eid, $reset = FALSE) {
   $conditions = array('type' => $type, 'eid' => $eid);
   return entity_load('micro', FALSE, $conditions, $reset);
@@ -1065,6 +1109,17 @@ function micro_load_from_type($type, $eid, $reset = FALSE) {
 //HELPER FUNCTIONS.
 //=================
 
+/**
+ * Entity uri callback.
+ */
+function micro_uri($micro) {
+  return array(
+    'path' => 'micro/' . $micro->mid,
+  );
+}
+function micro_page_title($micro) {
+  return isset($micro->mid) ? $micro->mid : '';
+}
 /**
  * Returns a list of all the available micro types.
  *
@@ -1631,14 +1686,15 @@ function micro_get_display($entity, $id) {
   include_once(drupal_get_path('module', 'micro') . '/micro.pages.inc');
   foreach (micro_types_from_entity($entity->content['#entity_type'], $entity->content['#bundle']) as $micro_type) {
     $micro_items = micro_load_from_type($micro_type->type, $id);
-    $form = micro_add($micro_type->type);
+    dsm($micro_items);
+    $form = micro_add($micro_type->type, $id);
     $output[$micro_type->type] = array(
       'input' => array(
         'form' => $form,
         '#theme' => $input_types[$micro_type->data['input']]['theme'],
       ),
       'display' => array(
-        'items' => $micro_items,
+        '#items' => $micro_items,
         '#theme' => $display_types[$micro_type->data['display']]['theme'],
       )
     );
@@ -1646,6 +1702,61 @@ function micro_get_display($entity, $id) {
   return $output;
 }
 
+/**
+ * Menu callback; view a single micro.
+ */
+function micro_page_view($micro) {
+  // If there is a menu link to this micro, the link becomes the last part
+  // of the active trail, and the link name becomes the page title.
+  // Thus, we must explicitly set the page title to be the micro title.
+  drupal_set_title($micro->mid);
+  $uri = entity_uri('micro', $micro);
+  // Set the micro path as the canonical URL to prevent duplicate content.
+  drupal_add_html_head_link(array('rel' => 'canonical', 'href' => url($uri['path'], $uri['options'])), TRUE);
+  // Set the non-aliased path as a default shortlink.
+  drupal_add_html_head_link(array('rel' => 'shortlink', 'href' => url($uri['path'], array_merge($uri['options'], array('alias' => TRUE)))), TRUE);
+  return micro_view_multiple(array($micro->mid => $micro));
+  /*
+   *return micro_view_multiple(array($micro->mid => $micro), 'full');
+   */
+}
+
+/**
+ * Construct a drupal_render() style array from an array of loaded micros.
+ *
+ * @param $micros
+ *   An array of micros as returned by micro_load_multiple().
+ * @param $view_mode
+ *   View mode, e.g. 'full', 'teaser'...
+ * @param $weight
+ *   An integer representing the weight of the first micro in the list.
+ * @param $langcode
+ *   (optional) A language code to use for rendering. Defaults to the global
+ *   content language of the current request.
+ *
+ * @return
+ *   An array in the format expected by drupal_render().
+ */
+/*
+ *function micro_view_multiple($micros, $view_mode = 'teaser', $weight = 0, $langcode = NULL) {
+ */
+function micro_view_multiple($micros, $view_mode = 'full', $weight = 0) {
+  field_attach_prepare_view('micro', $micros, $view_mode);
+  entity_prepare_view('micro', $micros);
+  $build = array();
+  dsm($micros);
+  foreach ($micros as $micro) {
+    /*
+     *$build['micros'][$micro->nid] = micro_view($micro, $view_mode, $langcode);
+     */
+     dsm($micro);
+    $build['micros'][$micro->mid] = micro_view($micro, $view_mode);
+    $build['micros'][$micro->mid]['#weight'] = $weight;
+    $weight++;
+  }
+  $build['micros']['#sorted'] = TRUE;
+  return $build;
+}
 
 //======
 //FORMS.
@@ -2161,12 +2272,9 @@ function micro_save_action($micro) {
 //TODO - Search integration
 //TODO - Options: expiration date / micro view page / short url / editable name + date / limited access? / delete confirm /
 //TODO - is_new
-//TODO - created/changed/timestamp
 //TODO - micro_view + micro_build_content
-//TODO - remove all micro->status
 //TODO - micro->entity (attached entity)
 //TODO - variable_set('micro_private_' . $type)
-//TODO - micro_page_title = mid
 //TODO - micro.js + micro_types.js
 //TODO - hook_uninstall, hook_disable, micro_enable
 //TODO - add permissions
@@ -2174,6 +2282,7 @@ function micro_save_action($micro) {
 //TODO - THEME FUNCTIONS
 //TODO - micro_load_by_user vs micro_load_from_entity
 //TODO - nojs for ajax form
+//TODO - optional redirect + disabled for site micros
 
 /*
  *hook_micro_widget($entity, $bundle, $display) {

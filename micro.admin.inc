@@ -84,6 +84,20 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
 
+  /*
+   *foreach (entity_get_info() as $entity_type => $entity_info) {
+   *  dsm($entity_type);
+   *  if ($entity_info['fieldable']) {
+   *    dsm($entity_info);
+   *    foreach ($entity_info['bundles'] as $bundle_name => $bundle_info) {
+   *      dsm($bundle_info);
+   *      if (isset($bundle_info['admin'])) {
+   *        dsm($bundle_info['admin']);
+   *      }
+   *    }
+   *  }
+   *}
+   */
   // Make the type object available to implementations of hook_form_alter.
   $form['#micro_type'] = $type;
 

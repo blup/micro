@@ -58,7 +58,7 @@ function theme_micro_add_list($variables) {
 /**
  * Present a micro submission form or a set of links to such forms.
  */
-function micro_add($type) {
+function micro_add($type, $id) {
   global $user;
 
   $types = micro_type_get_types();
@@ -66,7 +66,7 @@ function micro_add($type) {
   // If a micro type has been specified, validate its existence.
   if (isset($types[$type])) {
     // Initialize settings:
-    $micro = (object) array('uid' => $user->uid, 'name' => (isset($user->name) ? $user->name : ''), 'type' => $type, 'language' => LANGUAGE_NONE);
+    $micro = micro_create(array('uid' => $user->uid, 'type' => $type, 'eid' => $id));
 
     drupal_set_title(t('Create @name', array('@name' => $types[$type]->name)), PASS_THROUGH);
     $output = drupal_get_form($type . '_micro_form', $micro);
@@ -101,6 +101,7 @@ function micro_form($form, &$form_state, $micro) {
     $micro = $form_state['micro'];
   }
 
+  $form['#micro'] = $micro;
   // Identify this as a micro edit form.
   $form['#micro_edit_form'] = TRUE;
 
@@ -111,20 +112,13 @@ function micro_form($form, &$form_state, $micro) {
 
   // Basic micro information.
   // These elements are just values so they are not even sent to the client.
-  foreach (array('mid', 'uid', 'created', 'type') as $key) {
+  foreach (array('mid', 'uid', 'eid', 'created', 'type') as $key) {
     $form[$key] = array(
       '#type' => 'value',
       '#value' => isset($micro->$key) ? $micro->$key : NULL,
     );
   }
 
-  // Changed must be sent to the client, for later overwrite error checking.
-  $form['changed'] = array(
-    '#type' => 'hidden',
-    '#default_value' => isset($micro->changed) ? $micro->changed : NULL,
-  );
-
-  $form['#micro'] = $micro;
 
   // Invoke hook_form() to get the micro-specific bits. Can't use micro_invoke(),
   // because hook_form() needs to be able to receive $form_state by reference.
@@ -133,9 +127,6 @@ function micro_form($form, &$form_state, $micro) {
   $function = micro_type_get_base($micro) . '_form';
   if (function_exists($function) && ($extra = $function($micro, $form_state))) {
     $form = array_merge_recursive($form, $extra);
-  }
-  if (!isset($form['title']['#weight'])) {
-    $form['title']['#weight'] = -5;
   }
 
   // Add the buttons.
@@ -163,6 +154,7 @@ function micro_form($form, &$form_state, $micro) {
   if (!isset($form['#submit']) && function_exists($micro->type . '_micro_form_submit')) {
     $form['#submit'][] = $micro->type . '_micro_form_submit';
   }
+  $form += array('#submit' => array());
 
   $form['#builder_function'] = 'micro_form_submit_build_micro';
   field_attach_form('micro', $micro, $form, $form_state);
@@ -186,6 +178,7 @@ function micro_form_delete_submit($form, &$form_state) {
 
 function micro_form_submit($form, &$form_state) {
   $micro = $form['#builder_function']($form, $form_state);
+
   $insert = empty($micro->mid);
   micro_save($micro);
   $micro_link = l(t('view'), 'micro/' . $micro->mid);
@@ -227,6 +220,7 @@ function micro_form_submit($form, &$form_state) {
  */
 function micro_form_submit_build_micro($form, &$form_state) {
   unset($form_state['submit_handlers']);
+
   form_execute_handlers('submit', $form, $form_state);
 
   $micro = $form_state['micro'];
