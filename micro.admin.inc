@@ -189,8 +189,8 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     $form['format']['display'] = array(
       '#type' => 'select',
       '#title' => t('Display type'),
-      '#options' => _micro_get_display_options($entities, $selected, isset($form_state['values']['type']) ? $form['values']['type'] : null),
-      '#default_value' => isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display',
+      '#options' => array('simple_page_display' => t('Simple page display')),
+      '#default_value' => 'simple_page_display',
       '#disabled' => TRUE,
     );
     //TODO - check type if set (after first submit)
@@ -198,66 +198,68 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     $form['format']['input'] = array(
       '#type' => 'select',
       '#title' => t('Input type'),
-      '#options' => _micro_get_input_options($entities, $selected, isset($form_state['values']['type']) ? $form['values']['type'] : null),
-      '#default_value' => isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input',
+      '#options' => array('simple_page_input' => t('Simple page input')),
+      '#default_value' => 'simple_page_input',
       '#disabled' => TRUE,
     );
   }
 
-/*
- *  $form['additional_settings'] = array(
- *    '#type' => 'vertical_tabs',
- *    '#attached' => array(
- *      'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
- *    ),
- *  );
- *
- *  $form['submission'] = array(
- *    '#type' => 'fieldset',
- *    '#title' => t('Submission form settings'),
- *    '#collapsible' => TRUE,
- *    '#group' => 'additional_settings',
- *  );
- *  $form['submission']['help']  = array(
- *    '#type' => 'textarea',
- *    '#title' => t('Explanation or submission guidelines'),
- *    '#default_value' => $type->help,
- *    '#description' => t('This text will be displayed at the top of the page when creating or editing content of this type.'),
- *  );
- */
-  /*
-   *$form['workflow'] = array(
-   *  '#type' => 'fieldset',
-   *  '#title' => t('Publishing options'),
-   *  '#collapsible' => TRUE,
-   *  '#collapsed' => TRUE,
-   *  '#group' => 'additional_settings',
-   *);
-   *$form['workflow']['micro_options'] = array('#type' => 'checkboxes',
-   *  '#title' => t('Default options'),
-   *  '#default_value' => variable_get('micro_options_' . $type->type, array('status', 'promote')),
-   *  '#options' => array(
-   *    'status' => t('Published'),
-   *    'promote' => t('Promoted to front page'),
-   *    'sticky' => t('Sticky at top of lists'),
-   *    'revision' => t('Create new revision'),
-   *  ),
-   *  '#description' => t('Users with the <em>Administer micro</em> permission will be able to override these options.'),
-   *);
-   *$form['display'] = array(
-   *  '#type' => 'fieldset',
-   *  '#title' => t('Display settings'),
-   *  '#collapsible' => TRUE,
-   *  '#collapsed' => TRUE,
-   *  '#group' => 'additional_settings',
-   *);
-   *$form['display']['micro_submitted'] = array(
-   *  '#type' => 'checkbox',
-   *  '#title' => t('Display author and date information.'),
-   *  '#default_value' => variable_get('micro_submitted_' . $type->type, TRUE),
-   *  '#description' => t('Author username and publish date will be displayed.'),
-   *);
-   */
+
+  $form['additional_settings'] = array(
+    '#type' => 'vertical_tabs',
+    /*
+     *'#attached' => array(
+     *  'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
+     *),
+     */
+  );
+
+  $form['workflow'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Workflow settings'),
+    '#collapsible' => TRUE,
+    '#group' => 'additional_settings',
+  );
+  // Disable if 'site'
+  $form['workflow']['view_page'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('View page'),
+    '#description' => t('Whether items from this micro type will have their own view page (uri). If not, they will redirect to their parent entity. Micro items attached to the site will always have a view page.'),
+    '#options' => array('0' => FALSE, '1' => TRUE),
+    /*
+     *'#disabled' => (isset($form_state['values']['entity']) && $form_state['values']['entity'] == 'site') ? TRUE : FALSE,
+     */
+    '#default_value' => TRUE,
+  );
+  $form['workflow']['delete_confirm'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Delete confirmation'),
+    '#description' => t('Whether items from this micro type have a \'delete confirmation\' page.'),
+    '#options' => array('0' => FALSE, '1' => TRUE),
+    '#default_value' => isset($type->data['delete_confirm']) ? $type->data['delete_confirm'] : FALSE,
+  );
+
+  $form['expiration'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Expiration'),
+    '#collapsible' => TRUE,
+    '#group' => 'additional_settings',
+  );
+  $form['expiration']['expiration'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Expiration'),
+    '#description' => t('Whether items from this micro type will have an expiration date.'),
+    '#options' => array('0' => FALSE, '1' => TRUE),
+    '#default_value' => isset($type->data['expiration']) ? $type->data['expiration'] : FALSE,
+  );
+  $form['expiration']['expiration_time'] = array(
+    '#title' => t('Expiration time'),
+    '#type' => 'textfield',
+    '#default_value' => isset($type->data['expiration_time']) ? $type->data['expiration_time'] : '',
+    '#description' => t('The time (in seconds) after which the items will expire.'),
+    '#size' => 30,
+  );
+
   $form['base'] = array(
     '#type' => 'value',
     '#value' => $type->base,
@@ -320,15 +322,11 @@ function _micro_get_bundle_options($entities, $selected) {
  */
 function _micro_get_display_options($entities, $selected, $type) {
   $options = array();
-  if ($selected == 'site') {
-    $options = array('simple_page_display' => t('Simple page display'));
-  }
-  else {
-    $displays = micro_display_types();
-    foreach ($displays as $key=>$value) {
-      if (empty($value['micro_types']) || in_array($type, $value['micro_types'])) {
-        $options[$key] = $value['label'];
-      }
+  $options['none'] = 'None';
+  $displays = micro_display_types();
+  foreach ($displays as $key=>$value) {
+    if (empty($value['micro_types']) || in_array($type, $value['micro_types'])) {
+      $options[$key] = $value['label'];
     }
   }
   return $options;
@@ -343,16 +341,11 @@ function _micro_get_display_options($entities, $selected, $type) {
  */
 function _micro_get_input_options($entities, $selected, $type) {
   $options = array();
-  if ($selected == 'site') {
-    $options = array('simple_page_input' => t('Simple page input'));
-  }
-  else {
-    $inputs = micro_input_types();
-    foreach ($inputs as $input) {
-      if (empty($input['micro_types']) || in_array($type, $input['micro_types'])) {
-        $options[key($inputs)] = $input['label'];
-      }
-      next($inputs);
+  $options['none'] = 'None';
+  $inputs = micro_input_types();
+  foreach ($inputs as $key=>$value) {
+    if (empty($value['micro_types']) || in_array($type, $value['micro_types'])) {
+      $options[$key] = $value['label'];
     }
   }
   return $options;
@@ -378,6 +371,10 @@ function micro_type_form_validate($form, &$form_state) {
   if (isset($names[$type->name]) && $names[$type->name] != $old_type) {
     form_set_error('name', t('The human-readable name %name is already taken.', array('%name' => $type->name)));
   }
+
+  if (isset($form_state['expiration']) && !isset($form_state['expiration_time'])) {
+    form_set_error('expiration_time', t('You must specify an expiration time.'));
+  }
 }
 
 /**
@@ -402,6 +399,15 @@ function micro_type_form_submit($form, &$form_state) {
       $data['format'][$key] = $value;
     }
   }
+  // TODO - force this in form
+  if ($form_state['values']['entity'] == 'site') {
+    $data['view_page'] = TRUE;
+  }
+  else {
+    $data['view_page'] = $form_state['values']['view_page'];
+  }
+  $data['expiration'] = $form_state['values']['expiration'];
+  $data['expiration_time'] = $form_state['values']['expiration_time'];
   $type->data = $data;
 
   $type->base = !empty($form_state['values']['base']) ? $form_state['values']['base'] : 'micro_content';
@@ -439,7 +445,6 @@ function micro_type_form_submit($form, &$form_state) {
   // Saving the micro type after saving the variables allows modules to act
   // on those variables via hook_micro_type_insert().
   $status = micro_type_save($type);
-
   micro_types_rebuild();
   menu_rebuild();
   $t_args = array('%name' => $type->name);
