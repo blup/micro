@@ -49,8 +49,8 @@ function micro_cron() {
  *  // Check if expiration is turned on
  *  if ($expiration > 0) {
  *    // Fetch shouts that have passed the expiration date
- *    $micros = db_query("SELECT * FROM {micro} WHERE created < %d", time() - (60 * 60 * 24 * $expiration));
- *    while ($micro = db_fetch_object($micros)) {
+ *    $micro_items = db_query("SELECT * FROM {micro} WHERE created < %d", time() - (60 * 60 * 24 * $expiration));
+ *    while ($micro = db_fetch_object($micro_items)) {
  *      // Delete the shout
  *      micro_delete_shout($micro);
  *    }
@@ -218,6 +218,10 @@ function micro_menu() {
  */
 function micro_theme() {
   return array(
+    'micro' => array(
+      'template' => 'micro',
+      'render element' => 'content',
+    ),
     'micro_admin_type' => array(
       'variables' => array('name' => NULL, 'type' => NULL),
     ),
@@ -225,7 +229,7 @@ function micro_theme() {
       'variables' => array('name' => NULL, 'type' => NULL),
     ),
     'micro_inline_display' => array(
-      'render element' => 'element',
+      'render element' => 'content',
     ),
     'micro_linked_page_input' => array(
       'variables' => array('a' => null, 'b' => null, 'c' => null),
@@ -239,11 +243,11 @@ function micro_theme() {
   );
 }
 /**
- * Theme callback for creating and editing micros.
+ * Theme callback for creating and editing micro items.
  */
 function _micro_custom_theme() {
   // Use the administration theme if the site is configured to use it for
-  // micros.
+  // micro items.
   if (variable_get('micro_admin_theme')) {
     return variable_get('admin_theme');
   }
@@ -376,12 +380,14 @@ function micro_node_save($node) {
  * Implements hook_node_delete().
  */
 function micro_node_delete($node) {
-  foreach (micro_get_micros('node') as $micro) {
-    db_delete('micro')
-      ->condition('type', $micro->type)
-      ->condition('mid', $micro->mid)
-      ->condition('eid', $node->nid);
-  }
+  /*
+   *foreach (micro_get_micro items('node') as $micro) {
+   *  db_delete('micro')
+   *    ->condition('type', $micro->type)
+   *    ->condition('mid', $micro->mid)
+   *    ->condition('eid', $node->nid);
+   *}
+   */
 }
 
 /**
@@ -396,7 +402,7 @@ function micro_node_type_delete($info) {
  * Implements hook_user_cancel().
  */
 function micro_user_cancel(&$edit, $account, $method) {
-  // Delete all micros of the user in any case.
+  // Delete all micro items of the user in any case.
   foreach (micro_load_by_user($account) as $micro) {
     micro_delete($micro);
   }
@@ -457,7 +463,7 @@ function micro_permission() {
     ),
     'administer micro types' =>  array(
       'title' => t('Administer micro types'),
-      'description' => t('Create and delete fields on user micros, and set their permissions.'),
+      'description' => t('Create and delete fields for micro types.'),
     ),
     'administer micro items' =>  array(
       'title' => t('Administer micro items'),
@@ -498,33 +504,33 @@ function micro_permission() {
 }
 
 /**
- * Fetch micros by account.
+ * Fetch micro items by account.
  *
  * @param $account
- *   The user account to load micros for, or its uid.
+ *   The user account to load micro items for, or its uid.
  * @param $type
  *   To load a single micro, pass the type of the micro to load.
  * @return
- *   Either a single micro or an array of micros keyed by micro type.
+ *   Either a single micro or an array of micro items keyed by micro type.
  *
  * @see micro_load_multiple()
  */
 function micro_load_by_user($account, $type = NULL) {
   // Use a separate query to determine all micro ids per user and cache them.
-  // That way we can look up micros by id and benefit from the static cache
+  // That way we can look up micro items by id and benefit from the static cache
   // of the entity loader.
   $cache = drupal_static(__FUNCTION__, array());
   $uid = is_object($account) ? $account->uid : $account;
 
   if (!isset($cache[$uid])) {
     if (empty($type)) {
-      $micros = micro_load_multiple(array(), array('uid' => $uid));
+      $micro_items = micro_load_multiple(array(), array('uid' => $uid));
       // Cache ids for further lookups.
       $cache[$uid] = array();
-      foreach ($micros as $mid => $micro) {
+      foreach ($micro_items as $mid => $micro) {
         $cache[$uid][$micro->type] = $mid;
       }
-      return array_combine(array_keys($cache[$uid]), $micros);
+      return array_combine(array_keys($cache[$uid]), $micro_items);
     }
     $cache[$uid] = db_select('micro', 'm')
       ->fields('m', array('type', 'mid'))
@@ -535,7 +541,7 @@ function micro_load_by_user($account, $type = NULL) {
   if (isset($type)) {
     return isset($cache[$uid][$type]) ? micro_load($cache[$uid][$type]) : FALSE;
   }
-  // Return an array containing micros keyed by micro type.
+  // Return an array containing micro items keyed by micro type.
   return $cache[$uid] ? array_combine(array_keys($cache[$uid]), micro_load_multiple($cache[$uid])) : $cache[$uid];
 }
 
@@ -547,7 +553,7 @@ function micro_delete(Micro $micro) {
 }
 
 /**
- * Delete multiple micros.
+ * Delete multiple micro items.
  *
  * @param $mids
  *   An array of micro IDs.
@@ -595,7 +601,7 @@ function micro_type_delete(MicroType $type) {
  * Implements hook_micro_type_delete()
  */
 function micro_micro_type_delete($type) {
-  // Delete all micros of this type.
+  // Delete all micro items of this type.
   $mids = array_keys(micro_load_multiple(FALSE, array('type' => $type->type)));
   micro_delete_multiple($mids);
 }
@@ -724,7 +730,7 @@ function micro_invoke($micro, $hook, $a2 = NULL, $a3 = NULL, $a4 = NULL) {
  * Load micro entities from the database.
  *
  * This function should be used whenever you need to load more than one micro
- * from the database. micros are loaded into memory and will not require
+ * from the database. Micro items are loaded into memory and will not require
  * database access if loaded again during the same page request.
  *
  * @see entity_load()
@@ -833,6 +839,8 @@ function micro_submit($micro) {
 function micro_view($micro, $view_mode = 'full') {
   // Populate $micro->content with a render() array.
   micro_build_content($micro, $view_mode);
+  $micro_type = micro_type_get_type($micro);
+  $entity = entity_load($micro_type->entity, array($micro->eid));
 
   $build = $micro->content;
   // We don't need duplicate rendering info in micro->content.
@@ -841,6 +849,8 @@ function micro_view($micro, $view_mode = 'full') {
   $build += array(
     '#theme' => 'micro',
     '#micro' => $micro,
+    '#entity' => reset($entity),
+    '#attached_entity_type' => $micro_type->entity,
     '#view_mode' => $view_mode,
   );
 
@@ -865,7 +875,7 @@ function micro_view($micro, $view_mode = 'full') {
  * The content built for the micro (field values, comments, file attachments or
  * other micro components) will vary depending on the $view_mode parameter.
  *
- * Micro defines the following view modes for micros, with the following
+ * Micro defines the following view modes for micro items, with the following
  * default use cases:
  *   - short (default): micro is being displayed within its parent entity
  *   - full: micro is being displayed on its own page (micro/123)
@@ -883,7 +893,7 @@ function micro_build_content($micro, $view_mode = 'short') {
   $micro->content = array();
 
   // The 'view' hook can be implemented to overwrite the default function
-  // to display micros.
+  // to display micro items.
   if (micro_hook($micro, 'view')) {
     $micro = micro_invoke($micro, 'view', $view_mode);
   }
@@ -915,8 +925,8 @@ function micro_build_content($micro, $view_mode = 'short') {
  *   A micro object.
  */
 function micro_is_page($micro) {
-  $page_micro = menu_get_object();
-  return (!empty($page_micro) ? $page_micro->mid == $micro->mid : FALSE);
+  $page_element = menu_get_object();
+  return (!empty($page_element) ? (isset($page_element->mid) && $page_element->mid == $micro->mid) : FALSE);
 }
 /**
  * Determine whether the current user may perform the given operation on the
@@ -1220,24 +1230,6 @@ function micro_type_load($name) {
 }
 
 /**
- * Updates all micros of one type to be of another type.
- *
- * @param $old_type
- *   The current micro type of the micros.
- * @param $type
- *   The new micro type of the micros.
- *
- * @return
- *   The number of micros whose micro type field was modified.
- */
-function micro_type_update_micros($old_type, $type) {
-  return db_update('micro')
-    ->fields(array('type' => $type))
-    ->condition('type', $old_type)
-    ->execute();
-}
-
-/**
  * Set the default values for a micro type.
  *
  * The defaults are for a type defined through hook_micro_info().
@@ -1259,8 +1251,6 @@ function micro_type_set_defaults($info = array()) {
     $type->description = '';
     $type->disabled = 0;
     $type->is_new = 1;
-    //TODO - erase soon
-    $type->help = '';
   }
   $new_type = clone $type;
   //TODO
@@ -1295,17 +1285,17 @@ function micro_content_enabled($micro, $entity, $bundle = NULL) {
 }
 
 /**
- * List all micros available.
+ * List all micro items available.
  *
- * If entity type or account are entered, a list of all possible micros will be
+ * If entity type or account are entered, a list of all possible micro items will be
  * returned.
  *
  * @param $entity
- *   Optional. The type of entity for which to load the micros. Usually 'node'.
+ *   Optional. The type of entity for which to load the micro items. Usually 'node'.
  * @param $bundle
- *   Optional. The the entity bundle for which to load the micros.
+ *   Optional. The the entity bundle for which to load the micro items.
  * @param $account
- *   Optional. The user account to filter available micros. If not set, all
+ *   Optional. The user account to filter available micro items. If not set, all
  *   micro types for this entity/bundle will be returned.
  * @param $reset
  *   Optional. Reset the internal query cache.
@@ -1683,7 +1673,8 @@ function micro_get_display($entity, $id, $view_mode = null) {
   $display_types = micro_display_types();
   include_once(drupal_get_path('module', 'micro') . '/micro.pages.inc');
   foreach (micro_types_from_entity($entity->content['#entity_type'], $entity->content['#bundle']) as $micro_type) {
-    $micro_items = micro_load_from_type($micro_type->type, $id);
+    // Load and prepare the micro items
+    $micro_items = micro_view_multiple(micro_load_from_type($micro_type->type, $id));
     $form = micro_add($micro_type->type, $id);
     if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none') {
       $output[$micro_type->type]['input'] = array(
@@ -1693,7 +1684,7 @@ function micro_get_display($entity, $id, $view_mode = null) {
     }
     if ($display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
       $output[$micro_type->type]['display'] = array(
-        '#items' => $micro_items,
+        '#items' => reset($micro_items),
         '#theme' => $display_types[$micro_type->data['format'][$display]]['theme'],
       );
     }
@@ -1723,10 +1714,10 @@ function micro_page_view($micro) {
 }
 
 /**
- * Construct a drupal_render() style array from an array of loaded micros.
+ * Construct a drupal_render() style array from an array of loaded micro items.
  *
- * @param $micros
- *   An array of micros as returned by micro_load_multiple().
+ * @param $micro_items
+ *   An array of micro items as returned by micro_load_multiple().
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
  * @param $weight
@@ -1735,16 +1726,16 @@ function micro_page_view($micro) {
  * @return
  *   An array in the format expected by drupal_render().
  */
-function micro_view_multiple($micros, $view_mode = 'full', $weight = 0) {
-  field_attach_prepare_view('micro', $micros, $view_mode);
-  entity_prepare_view('micro', $micros);
+function micro_view_multiple($micro_items, $view_mode = 'full', $weight = 0) {
+  field_attach_prepare_view('micro', $micro_items, $view_mode);
+  entity_prepare_view('micro', $micro_items);
   $build = array();
-  foreach ($micros as $micro) {
-    $build['micros'][$micro->mid] = micro_view($micro, $view_mode);
-    $build['micros'][$micro->mid]['#weight'] = $weight;
+  foreach ($micro_items as $micro) {
+    $build['micro_items'][$micro->mid] = micro_view($micro, $view_mode);
+    $build['micro_items'][$micro->mid]['#weight'] = $weight;
     $weight++;
   }
-  $build['micros']['#sorted'] = TRUE;
+  $build['micro_items']['#sorted'] = TRUE;
   return $build;
 }
 
@@ -1770,6 +1761,7 @@ function micro_content_form($micro, $form_state) {
 //================
 
 function theme_micro_inline_display($variables) {
+  return null;
 }
 function theme_micro_inline_form_input($form) {
   return drupal_render($form['form']);
@@ -1913,6 +1905,10 @@ function micro_save_action($micro) {
 //TODO - column 'module' vs 'build'
 //TODO - integrate options (delete confirmation and expiration time)
 //TODO - micro_get_types vs micro_type_get_types
+//TODO - admin_menu: fix 'list micro types' = list, submenus
+//TODO - change default view_mode from full to short
+//TODO - reset() in micro_get_display, or remove 'micro_items' from micro_view_multiple
+//TODO - contextual links? + links?
 
 //TODO - required display/input from another module (for already existing options) - should go in hook_micro_info
 //TODO - Check if Devel generate integration is needed

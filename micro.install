@@ -40,7 +40,6 @@ function micro_schema() {
       'bundles' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'The bundle type(s) to which this micro type is attached to'),
       'base' => array('description' => 'The base string used to construct callbacks corresponding to this micro type.', 'type' => 'varchar', 'length' => 255, 'not null' => TRUE),
       'module' => array('description' => 'The module defining this micro type.', 'type' => 'varchar', 'length' => 255, 'not null' => TRUE),
-      'help' => array('description' => 'Help information shown to the user when creating a {node} of this type.', 'type' => 'text', 'not null' => TRUE, 'size' => 'medium', 'translatable' => TRUE),
       'description' => array('description' => 'A brief description of this type.', 'type' => 'text', 'not null' => TRUE, 'size' => 'medium', 'translatable' => TRUE),
       'disabled' => array('description' => 'A boolean indicating whether the node type is disabled.', 'type' => 'int', 'not null' => TRUE, 'default' => 0, 'size' => 'tiny'),
       'weight' => array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0, 'description' => 'The weight of this micro type in relation to others.'),
