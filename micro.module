@@ -220,7 +220,7 @@ function micro_theme() {
   return array(
     'micro' => array(
       'template' => 'micro',
-      'render element' => 'content',
+      'render element' => 'elements',
     ),
     'micro_admin_type' => array(
       'variables' => array('name' => NULL, 'type' => NULL),
@@ -228,8 +228,9 @@ function micro_theme() {
     'micro_admin_overview' => array(
       'variables' => array('name' => NULL, 'type' => NULL),
     ),
-    'micro_inline_display' => array(
-      'render element' => 'content',
+    'micro_wrapper' => array(
+      'template' => 'micro-wrapper',
+      'render element' => 'elements',
     ),
     'micro_linked_page_input' => array(
       'variables' => array('a' => null, 'b' => null, 'c' => null),
@@ -629,14 +630,18 @@ class MicroType extends EntityDBExtendable {
    * Whether the micro type appears in the user categories.
    */
 
-  public $userCategory = TRUE;
+  /*
+   *public $userCategory = TRUE;
+   */
 
 
   /**
    * Whether the micro is displayed on the user account page.
    */
 
-  public $userView = TRUE;
+  /*
+   *public $userView = TRUE;
+   */
 
 
   public $type;
@@ -819,6 +824,7 @@ function micro_submit($micro) {
   global $user;
 
   $micro->uid = $user->uid;
+  $micro->name = $user->name;
   $micro->created = REQUEST_TIME;
   $micro->validated = TRUE;
 
@@ -865,7 +871,6 @@ function micro_view($micro, $view_mode = 'full') {
 
   // Allow modules to modify the structured micro.
   drupal_alter('micro_view', $build);
-
   return $build;
 }
 
@@ -1573,7 +1578,6 @@ function _micro_types_build($rebuild = FALSE) {
   }
 
   asort($_micro_types->names);
-
   return $_micro_types;
 }
 
@@ -1616,10 +1620,10 @@ function micro_micro_display_info() {
      *  'theme' => 'micro_simple_page_display',
      *),
      */
-    'inline_display' => array(
+    'wrapper' => array(
       'label' => t('Inline'),
       'micro_types' => array(),
-      'theme' => 'micro_inline_display',
+      'theme' => 'micro_wrapper',
     ),
     'test_display' => array(
       'label' => t('Test'),
@@ -1676,6 +1680,7 @@ function micro_get_display($entity, $id, $view_mode = null) {
     // Load and prepare the micro items
     $micro_items = micro_view_multiple(micro_load_from_type($micro_type->type, $id));
     $form = micro_add($micro_type->type, $id);
+    dsm($micro_type->data['format'][$input]);
     if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none') {
       $output[$micro_type->type]['input'] = array(
         '#form' => $form,
@@ -1684,7 +1689,9 @@ function micro_get_display($entity, $id, $view_mode = null) {
     }
     if ($display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
       $output[$micro_type->type]['display'] = array(
+        '#entity' => $entity,
         '#items' => reset($micro_items),
+        '#bundle' => $micro_type->type,
         '#theme' => $display_types[$micro_type->data['format'][$display]]['theme'],
       );
     }
@@ -1760,14 +1767,90 @@ function micro_content_form($micro, $form_state) {
 //THEME FUNCTIONS.
 //================
 
-function theme_micro_inline_display($variables) {
-  return null;
+/**
+ * Process variables for micro.tpl.php
+ *
+ * Most themes utilize their own copy of micro.tpl.php. The default is located
+ * inside "modules/micro/micro.tpl.php". Look in there for the full list of
+ * variables.
+ *
+ * The $variables array contains the following arguments:
+ * - $micro
+ * - $view_mode
+ * - $page
+ *
+ * @see micro.tpl.php
+ */
+function template_preprocess_micro(&$variables) {
+  $variables['view_mode'] = $variables['elements']['#view_mode'];
+  $variables['micro'] = $variables['elements']['#micro'];
+  $variables['entity'] = $variables['elements']['#entity'];
+  $micro = $variables['micro'];
+
+  $variables['date']      = format_date($micro->created);
+  $variables['name']      = theme('username', array('account' => $micro));
+
+  $uri = entity_uri('micro', $micro);
+  $variables['micro_url']  = url($uri['path'], $uri['options']);
+  $variables['title']      = $micro->mid;
+  $variables['page']       = $variables['view_mode'] == 'full' && micro_is_page($micro);
+
+  // Flatten the micro object's member fields.
+  $variables = array_merge((array) $micro, $variables);
+
+  // Helpful $content variable for templates.
+  foreach (element_children($variables['elements']) as $key) {
+    $variables['content'][$key] = $variables['elements'][$key];
+  }
+
+  // Make the field variables available with the appropriate language.
+  field_attach_preprocess('micro', $micro, $variables['content'], $variables);
+
+  //TODO
+  // Display post information only on certain micro types.
+  if (variable_get('micro_submitted_' . $micro->type, TRUE)) {
+    $variables['display_submitted'] = TRUE;
+    $variables['user_picture'] = theme_get_setting('toggle_micro_user_picture') ? theme('user_picture', array('account' => $micro)) : '';
+  }
+  else {
+    $variables['display_submitted'] = FALSE;
+    $variables['user_picture'] = '';
+  }
+
+  // Gather micro classes.
+  $variables['classes_array'][] = drupal_html_class('micro-' . $micro->type);
+
+  // Clean up name so there are no underscores.
+  $variables['theme_hook_suggestions'][] = 'micro__' . $micro->type;
+  $variables['theme_hook_suggestions'][] = 'micro__' . $micro->mid;
 }
+
+/**
+ * Process variables for micro-wrapper.tpl.php.
+ *
+ * @see micro-wrapper.tpl.php
+ * @see theme_micro_wrapper()
+ */
+function template_preprocess_micro_wrapper(&$variables) {
+  // Provide contextual information.
+  $bundle = $variables['elements']['#bundle'];
+  $variables['entity'] = $variables['elements']['#entity'];
+  $variables['bundle'] = $bundle;
+  /*
+   *$variables['display_mode'] = variable_get('micro_default_mode_' . $variables['node']->type, micro_MODE_THREADED);
+   */
+  // Clean up name so there are no underscores.
+  $variables['theme_hook_suggestions'][] = 'micro_wrapper__' . $bundle;
+}
+/*
+ *function theme_micro_wrapper($variables) {
+ *}
+ */
 function theme_micro_inline_form_input($form) {
   return drupal_render($form['form']);
 }
     /*
-     *'micro_inline_display' => array(
+     *'micro_wrapper' => array(
      *  'variables' => array('a' => null, 'b' => null, 'c' => null),
      *),
      *'micro_linked_page_input' => array(
@@ -1909,6 +1992,8 @@ function micro_save_action($micro) {
 //TODO - change default view_mode from full to short
 //TODO - reset() in micro_get_display, or remove 'micro_items' from micro_view_multiple
 //TODO - contextual links? + links?
+//TODO - explore node->extra (rss/search)
+//TODO - repost functionality
 
 //TODO - required display/input from another module (for already existing options) - should go in hook_micro_info
 //TODO - Check if Devel generate integration is needed
