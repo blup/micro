@@ -159,14 +159,14 @@ function micro_menu() {
    */
   drupal_static_reset('_micro_types_build');
   foreach (micro_type_get_types() as $type) {
-    $type_url_str = str_replace('_', '-', $type->type);
+    $type_url_str = str_replace('_', '-', $type->machine_name);
     $items['micro/add/' . $type_url_str] = array(
       'title' => $type->name,
       'title callback' => 'check_plain',
       'page callback' => 'micro_add',
-      'page arguments' => array($type->type),
+      'page arguments' => array($type->machine_name),
       'access callback' => 'micro_access',
-      'access arguments' => array('create', $type->type),
+      'access arguments' => array('create', $type->machine_name),
       'description' => $type->description,
       'file' => 'micro.pages.inc',
     );
@@ -384,7 +384,7 @@ function micro_node_delete($node) {
   /*
    *foreach (micro_get_micro items('node') as $micro) {
    *  db_delete('micro')
-   *    ->condition('type', $micro->type)
+   *    ->condition('type', $micro->machine_name)
    *    ->condition('mid', $micro->mid)
    *    ->condition('eid', $node->nid);
    *}
@@ -395,8 +395,8 @@ function micro_node_delete($node) {
  * Implements hook_node_type().
  */
 function micro_node_type_delete($info) {
-  // Remove entry from microgable content types.
-  db_delete('micro_types')->condition('type', $info->type)->execute();
+  // Remove entry from micro-able content types.
+  db_delete('micro_types')->condition('mtid', $info->mtid)->execute();
 }
 
 /**
@@ -446,7 +446,7 @@ function micro_forms() {
  * Menu title callback.
  */
 function micro_type_page_title($micro_type) {
-  return $micro_type->type;
+  return $micro_type->machine_name;
 }
 
 /**
@@ -485,7 +485,7 @@ function micro_permission() {
   );
   // Generate per micro type permissions.
   foreach (micro_type_get_types() as $type) {
-    $type_name = check_plain($type->type);
+    $type_name = check_plain($type->machine_name);
     $permissions += array(
       "edit own $type_name micro items" => array(
         'title' => t('Edit own %type_name micro', array('%type_name' => $type->name)),
@@ -529,7 +529,7 @@ function micro_load_by_user($account, $type = NULL) {
       // Cache ids for further lookups.
       $cache[$uid] = array();
       foreach ($micro_items as $mid => $micro) {
-        $cache[$uid][$micro->type] = $mid;
+        $cache[$uid][$micro->machine_name] = $mid;
       }
       return array_combine(array_keys($cache[$uid]), $micro_items);
     }
@@ -603,7 +603,7 @@ function micro_type_delete(MicroType $type) {
  */
 function micro_micro_type_delete($type) {
   // Delete all micro items of this type.
-  $mids = array_keys(micro_load_multiple(FALSE, array('type' => $type->type)));
+  $mids = array_keys(micro_load_multiple(FALSE, array('mtid' => $type->mtid)));
   micro_delete_multiple($mids);
 }
 
@@ -779,10 +779,12 @@ function micro_load($mid = NULL, $reset = FALSE) {
  * Fills in a few default values, and then invokes hook_prepare() on the micro
  * type module, and hook_micro_prepare() on all modules.
  */
-function micro_object_prepare($micro) {
+function micro_object_prepare($micro)
   // Set up default values, if required.
   //TODO - default options?
-  $micro_options = variable_get('micro_options_' . $micro->type, array());
+  /*
+   *$micro_options = variable_get('micro_options_' . $micro->machine_name, array());
+   */
   // If this is a new micro, fill in the default values.
   if (!isset($micro->mid) || isset($micro->is_new)) {
     global $user;
@@ -1012,12 +1014,13 @@ function micro_access($op, $micro, $account = NULL) {
     // - If viewing and the micro item is not private, check whether the user has access to view the entity.
     // - If viewing and the micro item is private, check whether the user viewing is the author of the entity it's attached to.
     elseif (($op != 'view' && user_access($op . ' micro items attached to own content', $account->uid)) || ($op == 'view')) {
+      $micro_type = micro_type_get_type($micro);
       switch ($micro->entity) {
         case 'node':
           $entity = node_load($micro->eid);
           if (($op !== 'view' && node_access($op, $entity, $user)) ||
-              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && node_access($op, $entity, $user)) ||
-              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+              ($op == 'view' && !$micro_type->data['private'] && node_access($op, $entity, $user)) ||
+              ($op == 'view' && $micro_type->data['private'] && $account->uid == $entity->uid)) {
             $rights[$account->uid][$cid][$op] = TRUE;
             return TRUE;
           }
@@ -1025,8 +1028,8 @@ function micro_access($op, $micro, $account = NULL) {
         case 'user':
           $entity = user_load($micro->eid);
           if (($op !== 'view' && user_edit_access($entity)) ||
-              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && user_view_access($entity)) ||
-              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+              ($op == 'view' && !variable_get('micro_private_' . $micro_type->machine_name, 0) && user_view_access($entity)) ||
+              ($op == 'view' && variable_get('micro_private_' . $micro_type->machine_name, 0) && $account->uid == $entity->uid)) {
             $rights[$account->uid][$cid][$op] = TRUE;
             return TRUE;
           }
@@ -1034,8 +1037,8 @@ function micro_access($op, $micro, $account = NULL) {
         case 'comment':
           $entity = comment_load($micro->eid);
           if (($op !== 'view' && comment_access($op, $entity)) ||
-              ($op == 'view' && !variable_get('micro_private_' . $micro->type, 0) && comment_access($op, $entity)) ||
-              ($op == 'view' && variable_get('micro_private_' . $micro->type, 0) && $account->uid == $entity->uid)) {
+              ($op == 'view' && !variable_get('micro_private_' . $micro_type->machine_name, 0) && comment_access($op, $entity)) ||
+              ($op == 'view' && variable_get('micro_private_' . $micro_type->machine_name, 0) && $account->uid == $entity->uid)) {
             $rights[$account->uid][$cid][$op] = TRUE;
             return TRUE;
           }
@@ -1066,7 +1069,7 @@ function micro_access($op, $micro, $account = NULL) {
  * Implements hook_micro_access().
  */
 function micro_micro_access($micro, $op, $account) {
-  $type = is_string($micro) ? $micro : $micro->type;
+  $type = is_string($micro) ? $micro : $micro->machine_name;
 
   if (in_array($type, micro_type_get_types())) {
     if ($op == 'create' && user_access('create ' . $type . ' content', $account)) {
@@ -1092,7 +1095,7 @@ function micro_micro_access($micro, $op, $account) {
 function _micro_add_access() {
   $types = micro_type_get_types();
   foreach ($types as $type) {
-    if (micro_hook($type->type, 'form') && micro_access('create', $type->type)) {
+    if (micro_hook($type->machine_name, 'form') && micro_access('create', $type->machine_name)) {
       return TRUE;
     }
   }
@@ -1104,8 +1107,8 @@ function _micro_add_access() {
   }
   return FALSE;
 }
-function micro_load_from_type($type, $eid, $reset = FALSE) {
-  $conditions = array('type' => $type, 'eid' => $eid);
+function micro_load_from_type($mtid, $eid, $reset = FALSE) {
+  $conditions = array('mtid' => $mtid, 'eid' => $eid);
   return entity_load('micro', FALSE, $conditions, $reset);
 }
 
@@ -1153,10 +1156,16 @@ function micro_type_get_types() {
  *   fields used internally and defined in _micro_types_build(),
  *   hook_micro_info(), and micro_type_set_defaults().
  */
-function micro_type_get_type($micro) {
-  $type = _micro_extract_type($micro);
-  $types = _micro_types_build()->types;
-  return isset($types[$type]) ? $types[$type] : FALSE;
+function micro_type_get_type($micro, $object = TRUE) {
+  if (is_object($micro) || is_numeric($micro)) {
+    $id = is_object($micro) ? $micro->mtid : $micro;
+    $types = _micro_types_build()->ids;
+    return isset($types[$id]) ? ($object ? $types[$id] : $types[$id]->machine_name) : FALSE;
+  }
+  else {
+    $types = _micro_types_build()->types;
+    return isset($types[$micro]) ? ($object ? $types[$micro] : $types[$micro]->machine_name) : FALSE;
+  }
 }
 
 /**
@@ -1175,9 +1184,15 @@ function micro_type_get_type($micro) {
  * @see micro_invoke()
  */
 function micro_type_get_base($micro) {
-  $type = _micro_extract_type($micro);
-  $types = _micro_types_build()->types;
-  return isset($types[$type]) && isset($types[$type]->base) ? $types[$type]->base : FALSE;
+  if (is_object($micro) || is_numeric($micro)) {
+    $id = is_object($micro) ? $micro->mtid : $micro;
+    $types = _micro_types_build()->ids;
+    return isset($types[$id]) && isset($types[$id]->base) ? $types[$id]->base : FALSE;
+  }
+  else {
+    $types = _micro_types_build()->types;
+    return isset($types[$micro]) && isset($types[$micro]->base) ? $types[$micro]->base : FALSE;
+  }
 }
 
 /**
@@ -1203,9 +1218,15 @@ function micro_type_get_names() {
  *   The micro type name or FALSE if the micro type is not found.
  */
 function micro_type_get_name($micro) {
-  $type = _micro_extract_type($micro);
-  $types = _micro_types_build()->names;
-  return isset($types[$type]) ? $types[$type] : FALSE;
+  if (is_object($micro) || is_numeric($micro)) {
+    $id = is_object($micro) ? $micro->mtid : $micro;
+    $types = _micro_types_build()->ids;
+    return isset($names[$id]) && isset($types[$id]->name) ? $types[$id]->name : FALSE;
+  }
+  else {
+    $names = _micro_types_build()->names;
+    return isset($names[$micro]) ? $names[$micro] : FALSE;
+  }
 }
 
 /**
@@ -1250,7 +1271,7 @@ function micro_type_set_defaults($info = array()) {
 
   if (!isset($type)) {
     $type = new MicroType();
-    $type->type = '';
+    $type->machine_name = '';
     $type->name = '';
     $type->base = '';
     $type->description = '';
@@ -1284,8 +1305,8 @@ function micro_type_set_defaults($info = array()) {
  *   Boolean TRUE if the micro is enabled for this entity and bundle.
  *   FALSE otherwise.
  */
-function micro_content_enabled($micro, $entity, $bundle = NULL) {
-  $return = $micro->entity == $entity && (!isset($bundle) || in_array($bundle, $micro->bundles));
+function micro_content_enabled($micro_type, $entity, $bundle = NULL) {
+  $return = $micro_type->entity == $entity && (!isset($bundle) || in_array($bundle, $micro_type->bundles));
   return $return;
 }
 
@@ -1333,7 +1354,7 @@ function micro_get_micro_types($entity = NULL, $bundle = NULL, $account = NULL, 
     // Allow modules implementing hook_micro_alter(&$micro_types) and hook_micro_TYPE_alter(&$micro_type) to modify each micro.
     drupal_alter('micro', $micro_types);
     foreach ($micro_types as $micro_type) {
-      drupal_alter('micro_' . $micro_type->type, $micro_type);
+      drupal_alter('micro_' . $micro_type->machine_name, $micro_type);
     }
   }
 
@@ -1390,6 +1411,7 @@ function _micro_displays_build($reset = FALSE) {
   }
 
   if (!isset($info)) {
+    //TODO
       if($cached = variable_get("micro_view_types")) {
       $info = $cached->data;
     }
@@ -1485,19 +1507,6 @@ function micro_display_types($display_type = NULL) {
 }
 
 /**
- * Extract the type name.
- *
- * @param $micro
- *   Either a string or object, containing the micro type information.
- *
- * @return
- *   micro type of the passed in data.
- */
-function _micro_extract_type($micro) {
-  return is_object($micro) ? $micro->type : $micro;
-}
-
-/**
  * Builds and returns the list of available micro types.
  *
  * The list of types is built by invoking hook_micro_info() on all modules and
@@ -1528,7 +1537,7 @@ function _micro_types_build($rebuild = FALSE) {
     }
   }
 
-  $_micro_types = (object)array('types' => array(), 'names' => array());
+  $_micro_types = (object)array('types' => array(), 'names' => array(), 'ids' => array());
 
   foreach (module_implements('micro_info') as $module) {
     $info_array = module_invoke($module, 'micro_info');
@@ -1542,12 +1551,12 @@ function _micro_types_build($rebuild = FALSE) {
   $query = db_select('micro_type', 'mt')
     ->addTag('micro_type_access')
     ->fields('mt')
-    ->orderBy('mt.type', 'ASC');
+    ->orderBy('mt.machine_name', 'ASC');
   if (!$rebuild) {
     $query->condition('disabled', 0);
   }
   foreach ($query->execute() as $type_object) {
-    $type_db = $type_object->type;
+    $type_db = $type_object->machine_name;
     // Original disabled value.
     $disabled = $type_object->disabled;
     // Check for micro types from disabled modules and mark their types for removal.
@@ -1577,6 +1586,10 @@ function _micro_types_build($rebuild = FALSE) {
     }
   }
 
+  foreach ($_micro_types->types as $type) {
+    $_micro_types->ids[$type->mtid] = $type;
+  }
+
   asort($_micro_types->names);
   return $_micro_types;
 }
@@ -1602,7 +1615,7 @@ function micro_types_from_entity($entity, $bundle) {
   $types = array();
   foreach (micro_type_get_types() as $micro_type) {
     if($entity == $micro_type->entity && in_array($bundle, $micro_type->bundles)) {
-      $types[$micro_type->type] = $micro_type;
+      $types[$micro_type->machine_name] = $micro_type;
     }
   }
   return $types;
@@ -1678,20 +1691,20 @@ function micro_get_display($entity, $id, $view_mode = null) {
   include_once(drupal_get_path('module', 'micro') . '/micro.pages.inc');
   foreach (micro_types_from_entity($entity->content['#entity_type'], $entity->content['#bundle']) as $micro_type) {
     // Load and prepare the micro items
-    $micro_items = micro_view_multiple(micro_load_from_type($micro_type->type, $id));
-    $form = micro_add($micro_type->type, $id);
+    $micro_items = micro_view_multiple(micro_load_from_type($micro_type->mtid, $id));
+    $form = micro_add($micro_type->machine_name, $id);
     dsm($micro_type->data['format'][$input]);
     if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none') {
-      $output[$micro_type->type]['input'] = array(
+      $output[$micro_type->machine_name]['input'] = array(
         '#form' => $form,
         '#theme' => $input_types[$micro_type->data['format'][$input]]['theme'],
       );
     }
     if ($display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
-      $output[$micro_type->type]['display'] = array(
+      $output[$micro_type->machine_name]['display'] = array(
         '#entity' => $entity,
         '#items' => reset($micro_items),
-        '#bundle' => $micro_type->type,
+        '#bundle' => $micro_type->machine_name,
         '#theme' => $display_types[$micro_type->data['format'][$display]]['theme'],
       );
     }
@@ -1782,14 +1795,14 @@ function micro_content_form($micro, $form_state) {
  * @see micro.tpl.php
  */
 function template_preprocess_micro(&$variables) {
-  $variables['view_mode'] = $variables['elements']['#view_mode'];
   $variables['micro'] = $variables['elements']['#micro'];
-  $variables['entity'] = $variables['elements']['#entity'];
   $micro = $variables['micro'];
-
+  $variables['micro_type'] = micro_type_get_type($micro);
+  $micro_type = $variables['micro_type'];
+  $variables['view_mode'] = $variables['elements']['#view_mode'];
+  $variables['entity'] = $variables['elements']['#entity'];
   $variables['date']      = format_date($micro->created);
   $variables['name']      = theme('username', array('account' => $micro));
-
   $uri = entity_uri('micro', $micro);
   $variables['micro_url']  = url($uri['path'], $uri['options']);
   $variables['title']      = $micro->mid;
@@ -1808,7 +1821,7 @@ function template_preprocess_micro(&$variables) {
 
   //TODO
   // Display post information only on certain micro types.
-  if (variable_get('micro_submitted_' . $micro->type, TRUE)) {
+  if (variable_get('micro_submitted_' . $micro_type->machine_name, TRUE)) {
     $variables['display_submitted'] = TRUE;
     $variables['user_picture'] = theme_get_setting('toggle_micro_user_picture') ? theme('user_picture', array('account' => $micro)) : '';
   }
@@ -1818,10 +1831,10 @@ function template_preprocess_micro(&$variables) {
   }
 
   // Gather micro classes.
-  $variables['classes_array'][] = drupal_html_class('micro-' . $micro->type);
+  $variables['classes_array'][] = drupal_html_class('micro-' . $micro_type->machine_name);
 
   // Clean up name so there are no underscores.
-  $variables['theme_hook_suggestions'][] = 'micro__' . $micro->type;
+  $variables['theme_hook_suggestions'][] = 'micro__' . $micro_type->machine_name;
   $variables['theme_hook_suggestions'][] = 'micro__' . $micro->mid;
 }
 
@@ -1994,6 +2007,7 @@ function micro_save_action($micro) {
 //TODO - contextual links? + links?
 //TODO - explore node->extra (rss/search)
 //TODO - repost functionality
+//TODO - micro table's 'type' should be mtid = mtid (id) from micro_type, and type = machine_name
 
 //TODO - required display/input from another module (for already existing options) - should go in hook_micro_info
 //TODO - Check if Devel generate integration is needed

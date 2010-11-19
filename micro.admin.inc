@@ -19,8 +19,8 @@ function micro_overview_types() {
 
   foreach ($names as $key => $name) {
     $type = $types[$key];
-    if (micro_hook($type->type, 'form')) {
-      $type_url_str = str_replace('_', '-', $type->type);
+    if (micro_hook($type->machine_name, 'form')) {
+      $type_url_str = str_replace('_', '-', $type->machine_name);
       $row = array(theme('micro_admin_overview', array('name' => $name, 'type' => $type)));
       // Set the edit column.
       $row[] = array('data' => l(t('edit'), 'admin/structure/micro/manage/' . $type_url_str));
@@ -68,9 +68,9 @@ function micro_overview_types() {
  */
 function theme_micro_admin_overview($variables) {
   $name = $variables['name'];
-  $type = $variables['type'];
+  $type = $variables['machine_name'];
   $output = check_plain($name);
-  $output .= ' <small> (Machine name: ' . check_plain($type->type) . ')</small>';
+  $output .= ' <small> (Machine name: ' . check_plain($type->machine_name) . ')</small>';
   $output .= '<div class="description">' . filter_xss_admin($type->description) . '</div>';
   return $output;
 }
@@ -79,7 +79,7 @@ function theme_micro_admin_overview($variables) {
  * Generates the micro type editing form.
  */
 function micro_type_form($form, &$form_state, $type = NULL) {
-  if (!isset($type->type)) {
+  if (!isset($type->mtid)) {
     // This is a new type, managed by micro module.
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
@@ -96,11 +96,11 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#size' => 30,
   );
 
-  $form['type'] = array(
+  $form['machine_name'] = array(
     '#type' => 'machine_name',
-    '#default_value' => $type->type,
+    '#default_value' => $type->machine_name,
     '#maxlength' => 32,
-    '#disabled' => !isset($type->type),
+    '#disabled' => !isset($type->machine_name),
     '#machine_name' => array(
       'exists' => 'micro_type_load',
     ),
@@ -172,7 +172,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
       $form['format'][$mode]['display_' . $mode] = array(
         '#type' => 'select',
         '#title' => t('Display type'),
-        '#options' => _micro_get_display_options($entities, $selected, isset($type->type) ? $type->type : (isset($form_state['values']['type']) ? $form['values']['type'] : null)),
+        '#options' => _micro_get_display_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : null)),
         '#default_value' => isset($type->data) ? $type->data['format']['display_' . $mode] : (isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display'),
       );
       //TODO - check type if set (after first submit)
@@ -180,7 +180,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
       $form['format'][$mode]['input_' . $mode] = array(
         '#type' => 'select',
         '#title' => t('Input type'),
-        '#options' => _micro_get_input_options($entities, $selected, isset($type->type) ? $type->type : (isset($form_state['values']['type']) ? $form['values']['type'] : null)),
+        '#options' => _micro_get_input_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : null)),
         '#default_value' => isset($type->data) ? $type->data['format']['input_' . $mode] : (isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input'),
       );
     }
@@ -279,7 +279,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
   );
 
   if ($type->module == 'micro') {
-    if (!empty($type->type)) {
+    if (!empty($type->mtid)) {
       $form['actions']['delete'] = array(
         '#type' => 'submit',
         '#value' => t('Delete micro type'),
@@ -355,14 +355,14 @@ function _micro_get_input_options($entities, $selected, $type) {
  */
 function micro_type_form_validate($form, &$form_state) {
   $type = new stdClass();
-  $type->type = trim($form_state['values']['type']);
+  $type->machine_name = trim($form_state['values']['machine_name']);
   $type->name = trim($form_state['values']['name']);
   $types = micro_type_get_names();
 
   // 'theme' conflicts with theme_micro_form().
   // '0' is invalid, since elsewhere we check it using empty().
-  if (in_array($type->type, array('0', 'theme'))) {
-    form_set_error('type', t("Invalid machine-readable name. Enter a name other than %invalid.", array('%invalid' => $type->type)));
+  if (in_array($type->machine_name, array('0', 'theme'))) {
+    form_set_error('machine_name', t("Invalid machine-readable name. Enter a name other than %invalid.", array('%invalid' => $type->machine_name)));
   }
 
   $names = array_flip($types);
@@ -384,7 +384,7 @@ function micro_type_form_submit($form, &$form_state) {
   $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
   $type = micro_type_set_defaults();
 
-  $type->type = trim($form_state['values']['type']);
+  $type->machine_name = trim($form_state['values']['machine_name']);
   $type->name = trim($form_state['values']['name']);
   $type->description = $form_state['values']['description'];
   $type->entity = $form_state['values']['entity'];
@@ -434,7 +434,7 @@ function micro_type_form_submit($form, &$form_state) {
 
   // Save or reset persistent variable values.
   foreach ($variables as $key => $value) {
-    $variable = $key . '_' . $type->type;
+    $variable = $key . '_' . $type->machine_name;
 
     if (is_array($value)) {
       $value = array_keys(array_filter($value));
@@ -472,9 +472,9 @@ function micro_type_form_submit($form, &$form_state) {
  */
 function micro_type_reset($type) {
   $info_array = module_invoke_all('micro_info');
-  if (isset($info_array[$type->type])) {
-    $info_array[$type->type]['type'] = $type->type;
-    $info = micro_type_set_defaults($info_array[$type->type]);
+  if (isset($info_array[$type->machine_name])) {
+    $info_array[$type->machine_name]['machine_name'] = $type->machine_name;
+    $info = micro_type_set_defaults($info_array[$type->machine_name]);
 
     foreach ($info as $field => $value) {
       $type->$field = $value;
@@ -486,13 +486,13 @@ function micro_type_reset($type) {
  * Menu callback; delete a single micro type.
  */
 function micro_type_delete_confirm($form, &$form_state, $type) {
-  $form['type'] = array('#type' => 'value', '#value' => $type->type);
+  $form['machine_name'] = array('#type' => 'value', '#value' => $type->machine_name);
   $form['name'] = array('#type' => 'value', '#value' => $type->name);
 
   $message = t('Are you sure you want to delete the micro type %type?', array('%type' => $type->name));
   $caption = '';
 
-  $num_micros = db_query("SELECT COUNT(*) FROM {micro} WHERE type = :type", array(':type' => $type->type))->fetchField();
+  $num_micros = db_query("SELECT COUNT(*) FROM {micro} WHERE mtid = :id", array(':id' => $type->mtid))->fetchField();
   if ($num_micros) {
     $caption .= '<p>' . format_plural($num_micros, '%type is used by 1 piece of content on your site. If you remove this micro type, you will not be able to edit the %type micro and it may not display correctly.', '%type is used by @count pieces of content on your site. If you remove %type, you will not be able to edit the %type micro and it may not display correctly.', array('%type' => $type->name)) . '</p>';
   }
@@ -506,7 +506,7 @@ function micro_type_delete_confirm($form, &$form_state, $type) {
  * Process micro type delete confirm submissions.
  */
 function micro_type_delete_confirm_submit($form, &$form_state) {
-  micro_type_delete($form_state['values']['type']);
+  micro_type_delete($form_state['values']['machine_name']);
 
   $t_args = array('%name' => $form_state['values']['name']);
   drupal_set_message(t('The micro type %name has been deleted.', $t_args));

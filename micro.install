@@ -20,21 +20,21 @@ function micro_schema() {
     'description' => 'Stores micro items.',
     'fields' => array(
       'mid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE, 'description' => 'Primary Key: Micro item ID'),
-      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The {micro_type}.type of this item'),
-      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The {users}.uid of the item\'s author'),
+      'mtid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The micro type id of this item.'),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The uid of the item\'s author'),
       'eid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'description' => 'The entity ID to which the post is attached to'),
       'created' => array('type' => 'int', 'not null' => TRUE, 'default' => 0, 'description' => 'Creation date'),
     ),
     'indexes' => array('eid' => array('eid')),
-    'foreign keys' => array('eid' => array('users' => 'uid'), 'type' => array('micro_types' => 'type')),
+    'foreign keys' => array('eid' => array('users' => 'uid'), 'mtid' => array('micro_types' => 'mtid')),
     'primary key' => array('mid'),
   );
 
   $schema['micro_type'] = array(
     'description' => 'Stores information about all defined micro types.',
     'fields' => array(
-      'id' => array('type' => 'serial', 'not null' => TRUE, 'description' => 'Primary Key: Unique micro type ID'),
-      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The machine-readable name of this micro type'),
+      'mtid' => array('type' => 'serial', 'not null' => TRUE, 'description' => 'Primary Key: Unique micro type ID'),
+      'machine_name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'description' => 'The machine-readable name of this micro type'),
       'name' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => '', 'description' => 'The human-readable name of this micro type'),
       'entity' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'node', 'description' => 'The entity type to which this micro type is attached to'),
       'bundles' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'The bundle type(s) to which this micro type is attached to'),

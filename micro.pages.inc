@@ -11,9 +11,9 @@
  * Menu callback; presents the micro editing form, or redirects to delete confirmation.
  */
 function micro_page_edit($micro) {
-  $type_name = micro_type_get_name($micro);
-  drupal_set_title(t('<em>Edit @type</em> @mid', array('@type' => $type_name, '@mid' => $micro->mid)), PASS_THROUGH);
-  return drupal_get_form($micro->type . '_micro_form', $micro);
+  $type = micro_type_get_type($micro);
+  drupal_set_title(t('<em>Edit @type</em> @mid', array('@type' => $type->name, '@mid' => $micro->mid)), PASS_THROUGH);
+  return drupal_get_form($type->machine_name . '_micro_form', $micro);
 }
 
 function micro_add_page() {
@@ -101,13 +101,14 @@ function micro_form($form, &$form_state, $micro) {
     $micro = $form_state['micro'];
   }
 
-  $form['#micro'] = $micro;
-  // Identify this as a micro edit form.
-  $form['#micro_edit_form'] = TRUE;
+  $micro_type = micro_type_get_type($micro);
 
+  $form['#micro'] = $micro;
+  $form['#micro_type'] = $micro_type;
+  $form['#micro_edit_form'] = TRUE;
   $form['#attributes']['class'][] = 'micro-form';
-  if (!empty($micro->type)) {
-    $form['#attributes']['class'][] = 'micro-' . $micro->type . '-form';
+  if (!empty($micro->mtid)) {
+    $form['#attributes']['class'][] = 'micro-' . $micro_type->machine_name . '-form';
   }
 
   // Basic micro information.
@@ -118,7 +119,6 @@ function micro_form($form, &$form_state, $micro) {
       '#value' => isset($micro->$key) ? $micro->$key : NULL,
     );
   }
-
 
   // Invoke hook_form() to get the micro-specific bits. Can't use micro_invoke(),
   // because hook_form() needs to be able to receive $form_state by reference.
@@ -151,8 +151,8 @@ function micro_form($form, &$form_state, $micro) {
   // micro_form_submit() as submit handler, but that is the button-level #submit
   // handler for the 'Save' action.
   $form['#validate'][] = 'micro_form_validate';
-  if (!isset($form['#submit']) && function_exists($micro->type . '_micro_form_submit')) {
-    $form['#submit'][] = $micro->type . '_micro_form_submit';
+  if (!isset($form['#submit']) && function_exists($micro_type->machine_name . '_micro_form_submit')) {
+    $form['#submit'][] = $micro_type->machine_name . '_micro_form_submit';
   }
   $form += array('#submit' => array());
 
@@ -178,11 +178,12 @@ function micro_form_delete_submit($form, &$form_state) {
 
 function micro_form_submit($form, &$form_state) {
   $micro = $form['#builder_function']($form, $form_state);
+  $micro_type = $form['#micro_type'];
 
   $insert = empty($micro->mid);
   micro_save($micro);
   $micro_link = l(t('view'), 'micro/' . $micro->mid);
-  $watchdog_args = array('@type' => $micro->type, '%mid' => $micro->mid);
+  $watchdog_args = array('@type' => $micro_type->machine_name, '%mid' => $micro->mid);
   $t_args = array('@type' => micro_type_get_name($micro), '%mid' => $micro->mid);
 
   if ($insert) {
@@ -256,9 +257,10 @@ function micro_delete_confirm($form, &$form_state, $micro) {
 function micro_delete_confirm_submit($form, &$form_state) {
   if ($form_state['values']['confirm']) {
     $micro = micro_load($form_state['values']['mid']);
+    $micro_type = micro_type_get_type($micro);
     micro_delete($form_state['values']['mid']);
-    watchdog('content', '@type: deleted %mid.', array('@type' => $micro->type, '%mid' => $micro->mid));
-    drupal_set_message(t('@type %mid has been deleted.', array('@type' => $micro->name, '%mid' => $micro->mid)));
+    watchdog('content', '@type: deleted %mid.', array('@type' => $micro_type->machine_name, '%mid' => $micro->mid));
+    drupal_set_message(t('@type %mid has been deleted.', array('@type' => $micro_type->name, '%mid' => $micro->mid)));
   }
 
   $form_state['redirect'] = '<front>';
