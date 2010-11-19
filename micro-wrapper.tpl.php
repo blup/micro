@@ -94,6 +94,4 @@
  *</div>
  */
  print render($content);
-  $all = get_defined_vars();
-  dsm($all);
  ?>

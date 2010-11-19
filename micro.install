@@ -45,8 +45,8 @@ function micro_schema() {
       'weight' => array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0, 'description' => 'The weight of this micro type in relation to others.'),
       'data' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'A serialized array of additional data related to this micro type', 'merge' => TRUE, ),
     ),
-    'primary key' => array('id'),
-    'unique keys' => array('type' => array('type')),
+    'primary key' => array('mtid'),
+    'unique keys' => array('machine_name' => array('machine_name')),
   );
   return $schema;
 }

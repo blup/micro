@@ -66,7 +66,7 @@ function micro_add($type, $id) {
   // If a micro type has been specified, validate its existence.
   if (isset($types[$type])) {
     // Initialize settings:
-    $micro = micro_create(array('uid' => $user->uid, 'type' => $type, 'eid' => $id));
+    $micro = micro_create(array('uid' => $user->uid, 'mtid' => $types[$type]->mtid, 'eid' => $id, 'type' => $type));
 
     drupal_set_title(t('Create @name', array('@name' => $types[$type]->name)), PASS_THROUGH);
     $output = drupal_get_form($type . '_micro_form', $micro);
@@ -80,6 +80,7 @@ function micro_form_validate($form, &$form_state) {
   // not update it with form values that have not yet been validated, so we
   // create a pseudo-entity to use during validation.
   $micro = (object) $form_state['values'];
+  dsm($micro);
   micro_validate($micro, $form, $form_state);
   entity_form_field_validate('micro', $form, $form_state);
 }
@@ -113,7 +114,7 @@ function micro_form($form, &$form_state, $micro) {
 
   // Basic micro information.
   // These elements are just values so they are not even sent to the client.
-  foreach (array('mid', 'uid', 'eid', 'created', 'type') as $key) {
+  foreach (array('mid', 'uid', 'eid', 'created', 'type', 'mtid') as $key) {
     $form[$key] = array(
       '#type' => 'value',
       '#value' => isset($micro->$key) ? $micro->$key : NULL,

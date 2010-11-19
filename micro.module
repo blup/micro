@@ -262,7 +262,7 @@ function micro_entity_info() {
     'micro' => array(
       'label' => t('Micro'),
       'entity class' => 'Micro',
-      'controller class' => 'EntityAPIController',
+      'controller class' => 'MicroController',
       'base table' => 'micro',
       'uri callback' => 'micro_uri',
       'fieldable' => TRUE,
@@ -278,7 +278,7 @@ function micro_entity_info() {
       ),
       'bundles' => array(),
       'bundle keys' => array(
-        'bundle' => 'type',
+        'bundle' => 'machine_name',
       ),
     ),
   );
@@ -292,8 +292,8 @@ function micro_entity_info() {
     'bundle of' => 'micro',
     'exportable' => TRUE,
     'entity keys' => array(
-      'id' => 'id',
-      'name' => 'type',
+      'id' => 'mtid',
+      'name' => 'machine_name',
       'label' => 'name',
     ),
   );
@@ -316,6 +316,22 @@ function micro_entity_info() {
    */
 
   return $return;
+}
+
+/**
+ * Controller class for micro items.
+ *
+ * This extends the EntityAPIController class.
+ */
+class MicroController extends EntityAPIController {
+
+  protected function buildQuery($ids, $conditions = array(), $revision_id = FALSE) {
+    $query = parent::buildQuery($ids, $conditions, $revision_id);
+    // Add the machine name field from the {micro_type} table.
+    $query->innerJoin('micro_type', 'mt', 'base.mtid = mt.mtid');
+    $query->addField('mt', 'machine_name', 'type');
+    return $query;
+  }
 }
 /**
  * Implements hook_comment_view().
@@ -677,7 +693,7 @@ function micro_entity_info_alter(&$entity_info) {
       'label' => $info->name,
       'admin' => array(
         'path' => 'admin/structure/micro/manage/%micro_type',
-        'real path' => 'admin/structure/micro/manage/' . str_replace('_', '-', $type),
+        'real path' => 'admin/structure/micro/manage/' . $type,
         'bundle argument' => 4,
         'access arguments' => array('administer micro'),
       ),
@@ -779,7 +795,8 @@ function micro_load($mid = NULL, $reset = FALSE) {
  * Fills in a few default values, and then invokes hook_prepare() on the micro
  * type module, and hook_micro_prepare() on all modules.
  */
-function micro_object_prepare($micro)
+function micro_object_prepare($micro) {
+  dsm($micro);
   // Set up default values, if required.
   //TODO - default options?
   /*
@@ -824,7 +841,7 @@ function micro_validate($micro, $form, &$form_state) {
  */
 function micro_submit($micro) {
   global $user;
-
+dsm($micro);
   $micro->uid = $user->uid;
   $micro->name = $user->name;
   $micro->created = REQUEST_TIME;
@@ -1158,6 +1175,7 @@ function micro_type_get_types() {
  */
 function micro_type_get_type($micro, $object = TRUE) {
   if (is_object($micro) || is_numeric($micro)) {
+    dsm($micro);
     $id = is_object($micro) ? $micro->mtid : $micro;
     $types = _micro_types_build()->ids;
     return isset($types[$id]) ? ($object ? $types[$id] : $types[$id]->machine_name) : FALSE;
@@ -1186,6 +1204,7 @@ function micro_type_get_type($micro, $object = TRUE) {
 function micro_type_get_base($micro) {
   if (is_object($micro) || is_numeric($micro)) {
     $id = is_object($micro) ? $micro->mtid : $micro;
+    dsm($micro);
     $types = _micro_types_build()->ids;
     return isset($types[$id]) && isset($types[$id]->base) ? $types[$id]->base : FALSE;
   }

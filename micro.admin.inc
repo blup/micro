@@ -17,11 +17,13 @@ function micro_overview_types() {
   $header = array(t('Name'), array('data' => t('Operations'), 'colspan' => $field_ui ? '4' : '2'));
   $rows = array();
 
+    $info = entity_get_info();
+    dsm($info);
   foreach ($names as $key => $name) {
     $type = $types[$key];
     if (micro_hook($type->machine_name, 'form')) {
       $type_url_str = str_replace('_', '-', $type->machine_name);
-      $row = array(theme('micro_admin_overview', array('name' => $name, 'type' => $type)));
+      $row = array(theme('micro_admin_overview', array('name' => $name, 'machine_name' => $type)));
       // Set the edit column.
       $row[] = array('data' => l(t('edit'), 'admin/structure/micro/manage/' . $type_url_str));
 
