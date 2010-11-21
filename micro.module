@@ -164,7 +164,7 @@ function micro_menu() {
       'title' => $type->name,
       'title callback' => 'check_plain',
       'page callback' => 'micro_add',
-      'page arguments' => array($type->machine_name),
+      'page arguments' => array($type->machine_name, 3),
       'access callback' => 'micro_access',
       'access arguments' => array('create', $type->machine_name),
       'description' => $type->description,
@@ -210,6 +210,38 @@ function micro_menu() {
     'context' => MENU_CONTEXT_INLINE,
     'file' => 'micro.pages.inc',
   );
+
+  $items['micro/ajax/add'] = array(
+    'page callback' => 'micro_ajax_add',
+    'type' => MENU_CALLBACK,
+  );
+  $items['micro/ajax/add/%/%micro_type/%/%'] = array(
+    'page callback' => 'micro_ajax_add',
+    'page arguments' => array(3,4,5,6),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  /*
+   *$items['micro/ajax/add/%/%micro_type/%'] = array(
+   *  'page callback' => 'micro_ajax_add',
+   *  'page arguments' => array(3,4,5),
+   *  'access callback' => 'micro_access',
+   *  'access arguments' => array('access content'),
+   *  'type' => MENU_CALLBACK,
+   *);
+   */
+  /*
+   *$items['micro/ajax/add/ajax/%micro_type/%'] = array(
+   *  'page callback' => 'micro_ajax_add',
+   *  'page arguments' => array(TRUE, 4, 5),
+   *  'access callback' => 'micro_access',
+   *  'access arguments' => array('access content'),
+   *  'type' => MENU_CALLBACK,
+   *);
+   */
+
+
   return $items;
 }
 
@@ -233,13 +265,22 @@ function micro_theme() {
       'render element' => 'elements',
     ),
     'micro_linked_page_input' => array(
-      'variables' => array('a' => null, 'b' => null, 'c' => null),
+      'render element' => 'elements',
+      /*
+       *'variables' => array('elements' => null),
+       */
     ),
     'micro_ajax_form_input' => array(
-      'variables' => array('a' => null, 'b' => null, 'c' => null),
+      'render element' => 'elements',
+      /*
+       *'variables' => array('elements' => null),
+       */
     ),
     'micro_inline_form_input' => array(
-      'variables' => array('form' => null),
+      'render element' => 'elements',
+      /*
+       *'variables' => array('elements' => null),
+       */
     ),
   );
 }
@@ -796,7 +837,6 @@ function micro_load($mid = NULL, $reset = FALSE) {
  * type module, and hook_micro_prepare() on all modules.
  */
 function micro_object_prepare($micro) {
-  dsm($micro);
   // Set up default values, if required.
   //TODO - default options?
   /*
@@ -841,7 +881,6 @@ function micro_validate($micro, $form, &$form_state) {
  */
 function micro_submit($micro) {
   global $user;
-dsm($micro);
   $micro->uid = $user->uid;
   $micro->name = $user->name;
   $micro->created = REQUEST_TIME;
@@ -1175,7 +1214,6 @@ function micro_type_get_types() {
  */
 function micro_type_get_type($micro, $object = TRUE) {
   if (is_object($micro) || is_numeric($micro)) {
-    dsm($micro);
     $id = is_object($micro) ? $micro->mtid : $micro;
     $types = _micro_types_build()->ids;
     return isset($types[$id]) ? ($object ? $types[$id] : $types[$id]->machine_name) : FALSE;
@@ -1204,7 +1242,6 @@ function micro_type_get_type($micro, $object = TRUE) {
 function micro_type_get_base($micro) {
   if (is_object($micro) || is_numeric($micro)) {
     $id = is_object($micro) ? $micro->mtid : $micro;
-    dsm($micro);
     $types = _micro_types_build()->ids;
     return isset($types[$id]) && isset($types[$id]->base) ? $types[$id]->base : FALSE;
   }
@@ -1709,23 +1746,34 @@ function micro_get_display($entity, $id, $view_mode = null) {
   $display_types = micro_display_types();
   include_once(drupal_get_path('module', 'micro') . '/micro.pages.inc');
   foreach (micro_types_from_entity($entity->content['#entity_type'], $entity->content['#bundle']) as $micro_type) {
-    // Load and prepare the micro items
-    $micro_items = micro_view_multiple(micro_load_from_type($micro_type->mtid, $id));
-    $form = micro_add($micro_type->machine_name, $id);
-    dsm($micro_type->data['format'][$input]);
-    if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none') {
-      $output[$micro_type->machine_name]['input'] = array(
-        '#form' => $form,
-        '#theme' => $input_types[$micro_type->data['format'][$input]]['theme'],
-      );
-    }
-    if ($display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
-      $output[$micro_type->machine_name]['display'] = array(
-        '#entity' => $entity,
-        '#items' => reset($micro_items),
-        '#bundle' => $micro_type->machine_name,
-        '#theme' => $display_types[$micro_type->data['format'][$display]]['theme'],
-      );
+    if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none' || $display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
+      /*
+       *$form = micro_add($micro_type->machine_name, $id);
+       */
+      if ($display_types[$micro_type->data['format'][$display]]['theme'] != 'none') {
+        // Load and prepare the micro items
+        $micro_items = micro_view_multiple(micro_load_from_type($micro_type->mtid, $id));
+        $output[$micro_type->machine_name] = array(
+          '#entity' => $entity,
+          '#eid' => $id,
+          '#view_mode' => $view_mode,
+          '#items' => reset($micro_items),
+          '#bundle' => $micro_type->machine_name,
+          '#theme' => $display_types[$micro_type->data['format'][$display]]['theme'],
+        );
+      }
+      if ($input_types[$micro_type->data['format'][$input]]['theme'] != 'none') {
+        $output[$micro_type->machine_name]['input'] = array(
+          '#entity' => $entity,
+          '#eid' => $id,
+          '#view_mode' => $view_mode,
+          '#bundle' => $micro_type->machine_name,
+          /*
+           *'#form' => $form,
+           */
+          '#theme' => $input_types[$micro_type->data['format'][$input]]['theme'],
+        );
+      }
     }
   }
   return $output;
@@ -1878,23 +1926,59 @@ function template_preprocess_micro_wrapper(&$variables) {
  *function theme_micro_wrapper($variables) {
  *}
  */
-function theme_micro_inline_form_input($form) {
-  return drupal_render($form['form']);
+function theme_micro_inline_form_input($variables) {
+  $elements = $variables['elements'];
+  return drupal_render(micro_add($elements['#bundle'], $elements['#eid']));
 }
-    /*
-     *'micro_wrapper' => array(
-     *  'variables' => array('a' => null, 'b' => null, 'c' => null),
-     *),
-     *'micro_linked_page_input' => array(
-     *  'variables' => array('a' => null, 'b' => null, 'c' => null),
-     *),
-     *'micro_ajax_form_input' => array(
-     *  'variables' => array('a' => null, 'b' => null, 'c' => null),
-     *),
-     *'micro_inline_form_input' => array(
-     *  'variables' => array('a' => null, 'b' => null, 'c' => null),
-     *),
-     */
+
+function theme_micro_linked_page_input($variables) {
+  $elements = $variables['elements'];
+  /*
+   *return l(t("Add a new @type", array('@type' => $elements['#micro_type']['name'])), 'micro/add/' . str_replace('_', '-', $form['form']['#micro_type']['machine_name']) . '/' . $form['form']['eid']['#value']);
+   */
+}
+
+function theme_micro_ajax_form_input($variables) {
+  drupal_add_js('misc/ajax.js');
+  $elements = $variables['elements'];
+  $bundle = str_replace('_', '-', $elements['#bundle']);
+  $dash = $bundle . '-' . $elements['#eid'];
+  $slash = $bundle . '/' . $elements['#eid'];
+  $name = str_replace('-', ' ', $bundle);
+  dsm($elements);
+  $output = l(t('Add a new @type', array('@type' => $name)), 'micro/ajax/add/nojs/' . $slash . '/open',
+    array('attributes' => array('class' => array('use-ajax'), 'id' => array('micro-add-' . $dash))));
+  return $output;
+}
+
+function micro_ajax_add($type = 'ajax', $micro_type, $eid, $op = close) {
+  if ($type == 'ajax') {
+    $bundle = str_replace('_', '-', $micro_type->machine_name);
+    $dash = $bundle . '-' . $eid;
+    $slash = $bundle . '/' . $eid;
+    $name = str_replace('-', ' ', $bundle);
+    $id = 'micro-add-' . $dash;
+    $commands = array();
+    if ($op == 'open') {
+      include_once(drupal_get_path('module', 'micro') . '/micro.pages.inc');
+      $link = l(t('Close'), 'micro/ajax/add/nojs/' . $slash . '/close',
+        array('attributes' => array('class' => array('use-ajax'), 'id' => array('micro-add-' . $dash . '-link'))));
+      $form = drupal_render(micro_add($micro_type->machine_name, $eid));
+      $output = '<div id="' . $id . '">' . $link . $form . '</div>';
+    }
+    else {
+      $output = l(t('Add a new @type', array('@type' => $name)), 'micro/ajax/add/nojs/' . $slash . '/open',
+        array('attributes' => array('class' => array('use-ajax'), 'id' => array('micro-add-' . $dash))));
+    }
+    $commands[] = ajax_command_replace('#' . $id, $output);
+    $page = array('#type' => 'ajax', '#commands' => $commands);
+    ajax_deliver($page);
+  }
+  else {
+    $output = t("This is some content delivered via a page load.");
+    return $output;
+  }
+}
 
 //==================
 //VIEWS INTEGRATION.

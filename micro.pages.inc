@@ -80,7 +80,6 @@ function micro_form_validate($form, &$form_state) {
   // not update it with form values that have not yet been validated, so we
   // create a pseudo-entity to use during validation.
   $micro = (object) $form_state['values'];
-  dsm($micro);
   micro_validate($micro, $form, $form_state);
   entity_form_field_validate('micro', $form, $form_state);
 }

@@ -17,8 +17,6 @@ function micro_overview_types() {
   $header = array(t('Name'), array('data' => t('Operations'), 'colspan' => $field_ui ? '4' : '2'));
   $rows = array();
 
-    $info = entity_get_info();
-    dsm($info);
   foreach ($names as $key => $name) {
     $type = $types[$key];
     if (micro_hook($type->machine_name, 'form')) {

@@ -110,8 +110,6 @@
  *
  *  <?php print render($content['comments']); ?>
  */
- $all = get_defined_vars();
- dsm($all);
  dsm($variables);
  ?>
 
