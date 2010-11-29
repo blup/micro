@@ -1,9 +1,9 @@
 <?php
-// $Id$
+// $Id$ micro.views.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
 
 /**
  * @file
- * Provide views data and handlers for the Facebook-style Statuses module.
+ * Provide views data and handlers for Micro module.
  */
 
 /**
@@ -18,8 +18,22 @@ function micro_views_data() {
   $data['micro']['table']['group']  = t('Micro');
   $data['micro']['table']['join'] = array(
     'micro_type' => array(
-      'left_field' => 'type',
-      'field' => 'type',
+      'left_field' => 'mtid',
+      'field' => 'mtid',
+      'type' => 'INNER',
+    ),
+  );
+  $data['micro']['table']['join'] = array(
+    'users' => array(
+      'left_field' => 'uid',
+      'field' => 'uid',
+      'type' => 'INNER',
+    ),
+  );
+  $data['users']['table']['join'] = array(
+    'micro' => array(
+      'left_field' => 'uid',
+      'field' => 'uid',
       'type' => 'INNER',
     ),
   );
@@ -54,7 +68,6 @@ function micro_views_data() {
     'title' => t('Micro ID'),
     'help' => t('The ID of the micro item.'),
     'field' => array(
-    //TODO
       'handler' => 'micro_views_handler_field_micro',
       'click sortable' => TRUE,
     ),
@@ -69,36 +82,22 @@ function micro_views_data() {
     ),
   );
 
-  //Alias for micro id to extend its use.
-  /*
-   *$data['micro']['mid_extra'] = array(
-   *  'title' => t('Last Micro per User'),
-   *  'help' => t('Show only the last status update for each user.'),
-   *  'filter' => array(
-   *    'field' => 'mid',
-   *    'handler' => 'micro_views_handler_filter',
-   *    'label' => t('Last Micro per User'),
-   *  ),
-   *);
-   */
-
-  // Micro type
-  //TODO
-  $data['micro']['type'] = array(
-    'title' => t('Type'),
-    'help' => t('The type of a micro item.'),
+  //Declares the author UID column.
+  $data['micro']['eid'] = array(
+    'title' => t('Entity ID'),
+    'help' => t('The entity ID of the entity that contains the micro item.'),
     'field' => array(
-      'handler' => 'micro_views_handler_field_micro_type',
+      'handler' => 'views_handler_field',
       'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
     ),
     'sort' => array(
       'handler' => 'views_handler_sort',
     ),
-    'filter' => array(
-      'handler' => 'micro_views_handler_filter_micro_type',
-    ),
     'argument' => array(
-      'handler' => 'micro_views_handler_argument_micro_type',
+      'handler' => 'views_handler_argument_numeric',
     ),
   );
 
@@ -121,7 +120,6 @@ function micro_views_data() {
     ),
   );
 
-//TODO
   $data['micro']['path'] = array(
     'field' => array(
       'title' => t('Path'),
@@ -129,18 +127,6 @@ function micro_views_data() {
       'handler' => 'micro_views_handler_field_micro_path',
     ),
   );
-
-  /*
-   *$data['micro']['repost'] = array(
-   *  'title' => t('Re-post'),
-   *  'help' => t('Shows a link to re-post a status.'),
-   *  'field' => array(
-   *    'field' => 'mid',
-   *    'handler' => 'micro_views_handler_field_repost',
-   *    'click sortable' => FALSE,
-   *  ),
-   *);
-   */
 
   //Declares the author UID column.
   $data['micro']['uid'] = array(
@@ -160,94 +146,6 @@ function micro_views_data() {
       'handler' => 'views_handler_argument_numeric',
     ),
   );
-
-  //Alias for author UID to use the name.
-  $data['micro']['uid_name'] = array(
-    'title' => t('Author name'),
-    'help' => t('The name of the user who created the micro item.'),
-    'field' => array(
-      'field' => 'pid',
-      'handler' => 'micro_views_handler_field_author',
-      'click sortable' => FALSE,
-    ),
-    'filter' => array(
-      'field' => 'pid',
-      'handler' => 'views_handler_filter_user_name',
-    ),
-    'sort' => array(
-      'field' => 'pid',
-      'handler' => 'views_handler_sort',
-    ),
-    'argument' => array(
-      'field' => 'pid',
-      'handler' => 'views_handler_argument_user_uid',
-    ),
-  );
-  //Alias for author picture.
-  $data['micro']['uid_pic'] = array(
-    'title' => t('Author picture'),
-    'help' => t('The picture of the user who created the micro item.'),
-    'field' => array(
-      'field' => 'pid',
-      'handler' => 'micro_views_handler_field_author_pic',
-      'click sortable' => FALSE,
-    ),
-  );
-
-  //Alias for extras for the author.
-  /*
-   *$data['micro']['pid_extra'] = array(
-   *  'title' => t('Usernames (context-aware)'),
-   *  'help' => t('The themed username(s) of either the owner or the sender and recipient of the status, depending on the context.'),
-   *  'field' => array(
-   *    'field' => 'pid',
-   *    'handler' => 'micro_views_handler_field_cross',
-   *    'click sortable' => FALSE,
-   *    'label' => t('Users'),
-   *  ),
-   *);
-   *$data['micro']['pid_extra_2'] = array(
-   *  'title' => t('Not own statuses'),
-   *  'help' => t("Do not show statuses posted to one's own profile."),
-   *  'filter' => array(
-   *    'field' => 'pid',
-   *    'handler' => 'micro_views_handler_filter_not_own',
-   *    'label' => t("Restrict to others' statuses"),
-   *  ),
-   *);
-   */
-  //This is slightly different than, but could probably be combined with, pid_extra_2.
-  /*
-   *$data['micro']['pid_extra_3'] = array(
-   *  'title' => t('Only own statuses'),
-   *  'help' => t("Only show statuses posted to one's own profile."),
-   *  'filter' => array(
-   *    'field' => 'pid',
-   *    'handler' => 'micro_views_handler_filter_own',
-   *    'label' => t('Restrict to own statuses'),
-   *  ),
-   *);
-   *$data['micro']['crosspost_users_pics'] = array(
-   *  'title' => t('Users with Pictures'),
-   *  'help' => t('The themed username(s) and pictures of either the owner or the sender and recipient of the status, depending on the context.'),
-   *  'field' => array(
-   *    'field' => 'pid',
-   *    'handler' => 'micro_views_handler_field_cross_pic',
-   *    'click sortable' => FALSE,
-   *    'label' => t('Users with Pictures'),
-   *  ),
-   *);
-   *$data['micro']['respond'] = array(
-   *  'title' => t('Respond link'),
-   *  'help' => t('Links to view the conversation or respond to it when appropriate.'),
-   *  'field' => array(
-   *    'field' => 'pid',
-   *    'handler' => 'micro_views_handler_field_respond',
-   *    'click sortable' => FALSE,
-   *    'label' => t('Respond to conversation'),
-   *  ),
-   *);
-   */
 
   //Declares the micro item timestamp column.
   $data['micro']['created'] = array(
@@ -270,7 +168,7 @@ function micro_views_data() {
     'help' => t('In the form of CCYYMMDD.'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_fulldate',
+      'handler' => 'views_handler_argument_micro_created_fulldate',
     ),
   );
 
@@ -279,7 +177,7 @@ function micro_views_data() {
     'help' => t('In the form of YYYYMM.'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_year_month',
+      'handler' => 'views_handler_argument_micro_created_year_month',
     ),
   );
 
@@ -288,7 +186,7 @@ function micro_views_data() {
     'help' => t('In the form of YYYY.'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_year',
+      'handler' => 'views_handler_argument_micro_created_year',
     ),
   );
 
@@ -297,7 +195,7 @@ function micro_views_data() {
     'help' => t('In the form of MM (01 - 12).'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_month',
+      'handler' => 'views_handler_argument_micro_created_month',
     ),
   );
 
@@ -306,7 +204,7 @@ function micro_views_data() {
     'help' => t('In the form of DD (01 - 31).'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_day',
+      'handler' => 'views_handler_argument_micro_created_day',
     ),
   );
 
@@ -315,107 +213,152 @@ function micro_views_data() {
     'help' => t('In the form of WW (01 - 53).'),
     'argument' => array(
       'field' => 'created',
-      'handler' => 'views_handler_argument_node_created_week',
+      'handler' => 'views_handler_argument_micro_created_week',
     ),
   );
-
-  /*
-   *if (module_exists('flag')) {
-   *  $data['micro']['user-flag-plus-current'] = array(
-   *    'title' => t('Content from flagged users or the current user'),
-   *    'filter' => array(
-   *      'field' => 'pid',
-   *      'handler' => 'micro_views_handler_filter_flagged_user',
-   *    ),
-   *  );
-   *  $data['micro']['user-flag-plus-arg'] = array(
-   *    'title' => t('Content from flagged users or the argument user'),
-   *    'argument' => array(
-   *      'field' => 'pid',
-   *      'handler' => 'micro_views_handler_argument_flagged_user',
-   *    ),
-   *  );
-   *}
-   */
 
   // ----------------------------------------------------------------------
   // Micro type table
 
-  $data['micro_type']['table']['group']  = t('Micro type');
+  $data['micro_type']['table']['group']  = t('Micro');
   $data['micro_type']['table']['join'] = array(
     'micro' => array(
-      'left_field' => 'type',
-      'field' => 'type',
+      'left_field' => 'mtid',
+      'field' => 'mtid',
       'type' => 'INNER',
     ),
   );
+
+  // Micro type
+  $data['micro_type']['machine_name'] = array(
+    'title' => t('Type'),
+    'help' => t('The type of a micro item.'),
+    'field' => array(
+      'handler' => 'micro_views_handler_field_micro_type',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'micro_views_handler_filter_micro_type',
+    ),
+    'argument' => array(
+      'handler' => 'micro_views_handler_argument_micro_type',
+    ),
+  );
+
+  // Entity type
+  $data['micro_type']['entity'] = array(
+    'title' => t('Entity'),
+    'help' => t('The entity the micro item is attached to.'),
+    'field' => array(
+      'handler' => 'micro_views_handler_field_micro_entity',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'micro_views_handler_filter_micro_entity',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument',
+    ),
+  );
+
   return $data;
 }
 
-/**
- * Implementation of hook_views_handlers().
- */
-function micro_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'micro'),
-    ),
-    'handlers' => array(
-      /*
-       *'micro_views_handler_argument_flagged_user' => array(
-       *  'parent' => 'views_handler_argument',
-       *),
-       *'micro_views_handler_field_created' => array(
-       *  'parent' => 'views_handler_field_date',
-       *),
-       */
-      /*
-       *'micro_views_handler_field_cross' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       *'micro_views_handler_field_cross_pic' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       */
-      'micro_views_handler_field_delete' => array(
-        'parent' => 'views_handler_field',
-      ),
-      'micro_views_handler_field_edit' => array(
-        'parent' => 'views_handler_field',
-      ),
-      'micro_views_handler_field_author' => array(
-        'parent' => 'views_handler_field_user',
-      ),
-      'micro_views_handler_field_author_pic' => array(
-        'parent' => 'views_handler_field',
-      ),
-      /*
-       *'micro_views_handler_field_author_pic_activity' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       *'micro_views_handler_field_repost' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       *'micro_views_handler_field_respond' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       *'micro_views_handler_field_status' => array(
-       *  'parent' => 'views_handler_field',
-       *),
-       *'micro_views_handler_filter' => array(
-       *  'parent' => 'views_handler_filter_boolean_operator',
-       *),
-       *'micro_views_handler_filter_flagged_user' => array(
-       *  'parent' => 'views_handler_filter',
-       *),
-       *'micro_views_handler_filter_not_own' => array(
-       *  'parent' => 'views_handler_filter_boolean_operator',
-       *),
-       *'micro_views_handler_filter_own' => array(
-       *  'parent' => 'views_handler_filter_boolean_operator',
-       *),
-       */
-    ),
+function micro_views_data_alter(&$data) {
+  // Add relationship handlers for all default entities
+  $default_relationships = module_invoke_all('micro_relationships');
+
+  $default_relationships[] = array(
+    'description' => t('nodes'),
+    'entity_type' => 'node',
+    'base_table' => 'node',
+    'entity_id_column' => 'nid',
   );
+  $default_relationships[] = array(
+    'description' => t('comments'),
+    'entity_type' => 'comment',
+    'base_table' => 'comments',
+    'entity_id_column' => 'cid',
+  );
+  $default_relationships[] = array(
+    'description' => t('users'),
+    'entity_type' => 'user',
+    'base_table' => 'users',
+    'entity_id_column' => 'uid',
+  );
+  $default_relationships[] = array(
+    'description' => t('taxonomy terms'),
+    'entity_type' => 'taxonomy',
+    'base_table' => 'taxonomy_term',
+    'entity_id_column' => 'tid',
+  );
+  $default_relationships[] = array(
+    'description' => t('micro items'),
+    'entity_type' => 'micro',
+    'base_table' => 'micro',
+    'entity_id_column' => 'mid',
+  );
+
+  foreach ($default_relationships as $relationship) {
+    $pseudo = str_replace(array(' ', '-', '.'), '_', $relationship['entity_type'] . '_' . $relationship['entity_id_column']);
+
+    $data[$relationship['base_table']]['micro'] = array(
+      'group' => t('Micro'),
+      'title' => 'Micro items',
+      'help' => 'Micro items attached to ' . $relationship['description'] . '.',
+      'relationship' => array(
+        'base' => 'micro',
+        'field' => 'eid',
+        'relationship field' => $relationship['entity_id_column'],
+        'entity_type' => $relationship['entity_type'],
+        'handler' => 'micro_views_handler_relationship_micro',
+      )
+    );
+
+    $data['micro']['relationship_' . $relationship['base_table']] = array(
+      'group' => t('Micro'),
+      'title' => ucfirst($relationship['description']) . '->Micro',
+      'help' => ucfirst($relationship['description']) . ' with micro items attached to them.',
+      'relationship' => array(
+        'base' => $relationship['base_table'],
+        'field' => $relationship['entity_id_column'],
+        'relationship field' => 'eid',
+        'entity_type' => $relationship['entity_type'],
+        'handler' => 'micro_views_handler_relationship_entity',
+      )
+    );
+  }
 }
+
+/**
+ * A helper function that creates a radio list of available micros.
+ *
+ * This function is used to select the desired micro when setting up micro
+ * relationships and fields.
+ */
+function micro_views_config_form($form_type, $entity_type, $current_micro) {
+  $micro_types = micro_types_from_entity($entity_type);
+
+  $options = array();
+  foreach ($micro_types as $type) {
+    $options[$type->machine_name] = $type->name;
+  }
+
+  $form = array(
+    '#type' => $form_type,
+    '#title' => t('micro'),
+    '#options' => $options,
+    '#default_value' => $current_micro,
+    '#required' => TRUE,
+  );
+
+  return $form;
+}
+
 

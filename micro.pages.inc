@@ -1,11 +1,10 @@
 <?php
-// $Id: micro.pages.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$ micro.pages.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
 
 /**
  * @file
  * Page callbacks for adding, editing, and deleting micro items.
  */
-
 
 /**
  * Menu callback; presents the micro editing form, or redirects to delete confirmation.
@@ -124,7 +123,7 @@ function micro_form($form, &$form_state, $micro) {
   // because hook_form() needs to be able to receive $form_state by reference.
   // @todo hook_form() implementations are unable to add #validate or #submit
   //   handlers to the form buttons below. Remove hook_form() entirely.
-  $function = micro_type_get_base($micro) . '_form';
+  $function = micro_type_get_module($micro) . '_content_form';
   if (function_exists($function) && ($extra = $function($micro, $form_state))) {
     $form = array_merge_recursive($form, $extra);
   }
@@ -240,10 +239,11 @@ function micro_form_submit_build_micro($form, &$form_state) {
  */
 function micro_delete_confirm($form, &$form_state, $micro) {
   $form['#micro'] = $micro;
+  $type = micro_type_get_type($micro);
   // Always provide entity id in the same form key as in the entity edit form.
   $form['mid'] = array('#type' => 'value', '#value' => $micro->mid);
   return confirm_form($form,
-    t('Are you sure you want to delete @type %mid?', array('@type' => $micro->name, '%mid' => $micro->mid)),
+    t('Are you sure you want to delete @type %mid?', array('@type' => $type->name, '%mid' => $micro->mid)),
     'micro/' . $micro->mid,
     t('This action cannot be undone.'),
     t('Delete'),

@@ -1,4 +1,5 @@
-// $Id: micro_types.js, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$ micro_types.js, v 1.0 2010/12/01 04:20:00 blup Exp $
+
 (function ($) {
 
 Drupal.behaviors.contentTypes = {

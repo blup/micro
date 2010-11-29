@@ -1,11 +1,10 @@
 <?php
-// $Id: micro.admin.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$ micro.admin.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
 
 /**
  * @file
  * Micro type editing UI.
  */
-
 
 /**
  * Displays the micro type admin overview page.
@@ -19,9 +18,9 @@ function micro_overview_types() {
 
   foreach ($names as $key => $name) {
     $type = $types[$key];
+    $type_url_str = str_replace('_', '-', $type->machine_name);
+    $row = array(theme('micro_admin_overview', array('name' => $name, 'machine_name' => $type)));
     if (micro_hook($type->machine_name, 'form')) {
-      $type_url_str = str_replace('_', '-', $type->machine_name);
-      $row = array(theme('micro_admin_overview', array('name' => $name, 'machine_name' => $type)));
       // Set the edit column.
       $row[] = array('data' => l(t('edit'), 'admin/structure/micro/manage/' . $type_url_str));
 
@@ -41,8 +40,14 @@ function micro_overview_types() {
         $row[] = array('data' => '');
       }
 
-      $rows[] = $row;
     }
+    else {
+      // For those micro types managed elsewhere
+      for ($i=0; $i<4; $i++) {
+        $row[] = array('data' => '');
+      }
+    }
+    $rows[] = $row;
   }
 
   $build['micro_table'] = array(
@@ -75,6 +80,7 @@ function theme_micro_admin_overview($variables) {
   return $output;
 }
 
+
 /**
  * Generates the micro type editing form.
  */
@@ -83,7 +89,11 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     // This is a new type, managed by micro module.
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
-
+  /*
+   *else {
+   *  $form['#mtid'] = $type->mtid;
+   *}
+   */
   // Make the type object available to implementations of hook_form_alter.
   $form['#micro_type'] = $type;
 
@@ -116,20 +126,8 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#description' => t('Describe this micro type. The text will be displayed on the <em>Add new micro</em> page.'),
   );
 
-  // Get all fieldable entities and their bundles.
-  $options_entity['site'] = t('Site');
-  foreach (entity_get_info() as $entity=>$data) {
-    if ($data['fieldable']) {
-      $entities[$entity] = array('label' => $data['label']);
-      $options_entity[$entity] = $data['label'];
-      foreach ($data['bundles'] as $bundle=>$info) {
-       $entities[$entity]['bundles'][$bundle] = $info['label'];
-      }
-      foreach ($data['view modes'] as $mode=>$info) {
-       $entities[$entity]['modes'][$mode] = $info['label'];
-      }
-    }
-  }
+  $entities = micro_get_entities();
+  $options_entity = micro_get_entities(FALSE);
 
   $selected = isset($type->entity) ? $type->entity : (isset($form_state['values']['entity']) ? $form_state['values']['entity'] : key($options_entity));
   $form['entity'] = array(
@@ -148,8 +146,8 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#type' => 'checkboxes',
     '#title' => t('Bundles'),
     '#prefix' => '<div id="ajax-replace">',
-    '#options' => _micro_get_bundle_options($entities, isset($type->entity) ? $type->entity : (isset($form_state['values']['entity']) ? $form_state['values']['entity'] : $selected)),
-    '#default_value' => isset($type->bundles) ? $type->bundles : (isset($form_state['values']['bundles']) ? $form_state['values']['bundles'] : array('site')),
+    '#options' => $entities[isset($type->entity) ? $type->entity : (isset($form_state['values']['entity']) ? $form_state['values']['entity'] : $selected)]['bundles'],
+    '#default_value' => isset($type->bundles) ? $type->bundles : (isset($form_state['values']['bundles']) ? $form_state['values']['bundles'] : $entities['site']['bundles']),
   );
 
   $form['format'] = array(
@@ -161,7 +159,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
   //TODO - check type if set (after first submit)
   //TODO - force NOT simple page if other than site
   if ((isset($type->entity) && $type->entity != 'site') || (isset($form_state['values']['entity']) && $form_state['values']['entity'] != 'site')) {
-    foreach ($entities[isset($type->entity) ? $type->entity : $form_state['values']['entity']]['modes'] as $mode=>$name) {
+    foreach ($entities[isset($type->entity) ? $type->entity : $form_state['values']['entity']]['modes'] as $mode => $name) {
       $form['format'][$mode] = array(
         '#title' => t('Format for view mode "@name"', array('@name' => $name)),
         '#type' => 'fieldset',
@@ -172,7 +170,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
       $form['format'][$mode]['display_' . $mode] = array(
         '#type' => 'select',
         '#title' => t('Display type'),
-        '#options' => _micro_get_display_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : null)),
+        '#options' => _micro_get_display_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : NULL)),
         '#default_value' => isset($type->data) ? $type->data['format']['display_' . $mode] : (isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display'),
       );
       //TODO - check type if set (after first submit)
@@ -180,7 +178,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
       $form['format'][$mode]['input_' . $mode] = array(
         '#type' => 'select',
         '#title' => t('Input type'),
-        '#options' => _micro_get_input_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : null)),
+        '#options' => _micro_get_input_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : NULL)),
         '#default_value' => isset($type->data) ? $type->data['format']['input_' . $mode] : (isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input'),
       );
     }
@@ -231,7 +229,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
      */
     '#default_value' => TRUE,
   );
-  $form['workflow']['delete_confirm'] = array(
+  $form['workflow']['delete_confirmation'] = array(
     '#type' => 'checkbox',
     '#title' => t('Delete confirmation'),
     '#description' => t('Whether items from this micro type have a \'delete confirmation\' page.'),
@@ -260,9 +258,9 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#size' => 30,
   );
 
-  $form['base'] = array(
+  $form['module'] = array(
     '#type' => 'value',
-    '#value' => $type->base,
+    '#value' => $type->module,
   );
   /*
    *$form['locked'] = array(
@@ -301,19 +299,6 @@ function micro_dependent_dropdown_callback($form, $form_state) {
 }
 
 /**
- * Helper function to populate the bundle checkboxes
- *
- * @param key. This will determine which set of options is returned.
- *
- * @return array of options
- */
-function _micro_get_bundle_options($entities, $selected) {
-  $options = array();
-  $selected == 'site' ? $options = array('site' => t('Site')) : $options = $entities[$selected]['bundles'];
-  return $options;
-}
-
-/**
  * Helper function to populate the display options
  *
  * @param key. This will determine which set of options is returned.
@@ -324,7 +309,7 @@ function _micro_get_display_options($entities, $selected, $type) {
   $options = array();
   $options['none'] = 'None';
   $displays = micro_display_types();
-  foreach ($displays as $key=>$value) {
+  foreach ($displays as $key => $value) {
     if (empty($value['micro_types']) || in_array($type, $value['micro_types'])) {
       $options[$key] = $value['label'];
     }
@@ -343,7 +328,7 @@ function _micro_get_input_options($entities, $selected, $type) {
   $options = array();
   $options['none'] = 'None';
   $inputs = micro_input_types();
-  foreach ($inputs as $key=>$value) {
+  foreach ($inputs as $key => $value) {
     if (empty($value['micro_types']) || in_array($type, $value['micro_types'])) {
       $options[$key] = $value['label'];
     }
@@ -368,7 +353,7 @@ function micro_type_form_validate($form, &$form_state) {
   $names = array_flip($types);
 
   //TODO - validate whether there is an existing name
-  if (isset($names[$type->name]) && $names[$type->name] != $old_type) {
+  if (isset($names[$type->name]) && $names[$type->name] != $type->machine_name) {
     form_set_error('name', t('The human-readable name %name is already taken.', array('%name' => $type->name)));
   }
 
@@ -382,7 +367,10 @@ function micro_type_form_validate($form, &$form_state) {
  */
 function micro_type_form_submit($form, &$form_state) {
   $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
-  $type = micro_type_set_defaults();
+  $type = $form['#micro_type'];
+  if (isset($type->mtid)) {
+    $type->is_new = 0;
+  }
 
   $type->machine_name = trim($form_state['values']['machine_name']);
   $type->name = trim($form_state['values']['name']);
@@ -394,7 +382,7 @@ function micro_type_form_submit($form, &$form_state) {
     }
   }
   $type->bundles = $form_state['values']['bundles'];
-  foreach ($form_state['values'] as $key=>$value) {
+  foreach ($form_state['values'] as $key => $value) {
     if (substr($key, 0, 5) == 'input' || substr($key, 0, 7) == 'display') {
       $data['format'][$key] = $value;
     }
@@ -406,11 +394,15 @@ function micro_type_form_submit($form, &$form_state) {
   else {
     $data['view_page'] = $form_state['values']['view_page'];
   }
+  $data['delete_confirmation'] = $form_state['values']['delete_confirmation'];
   $data['expiration'] = $form_state['values']['expiration'];
   $data['expiration_time'] = $form_state['values']['expiration_time'];
+
+  // Let other modules add in their data.
+  drupal_alter('micro_data', $data, $form_state);
   $type->data = $data;
 
-  $type->base = !empty($form_state['values']['base']) ? $form_state['values']['base'] : 'micro_content';
+  $type->module = !empty($form_state['values']['module']) ? $form_state['values']['module'] : 'micro';
   if (isset($form['#micro_type']->module)) {
     $type->module = $form['#micro_type']->module;
   }
@@ -460,6 +452,7 @@ function micro_type_form_submit($form, &$form_state) {
   $form_state['redirect'] = 'admin/structure/micro';
   return;
 }
+
 
 /**
  * Resets all of the relevant fields of a module-defined micro type to their

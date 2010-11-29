@@ -1,5 +1,5 @@
 <?php
-// $Id: micro.tpl.php,v 1.33 2010/04/08 18:26:42 dries Exp $
+// $Id$ micro.tpl.php, v 1.0 2010/12/01 04:20:00 blup Exp $
 
 /**
  * @file

@@ -1,10 +1,29 @@
-; $Id: micro.info,v 0.1 2011/01/01 04:20:00 blup Exp $
+; $Id$ micro.info, v 1.0 2010/12/01 04:20:00 blup Exp $
+
 name = Micro
 description = Micro entity that attaches to other entities (or site)
 version = 7.x-1.0
 core = 7.x
+
+dependencies[] = entity
+
+;Micro files
 files[] = micro.module
 files[] = micro.install
 files[] = micro.admin.inc
 files[] = micro.pages.inc
-dependencies[] = entity
+
+;Views handlers
+files[] = includes/views/micro_views_handler_argument_dates_various.inc
+files[] = includes/views/micro_views_handler_argument_micro_type.inc
+files[] = includes/views/micro_views_handler_field_author.inc
+files[] = includes/views/micro_views_handler_field_author_pic.inc
+files[] = includes/views/micro_views_handler_field_delete.inc
+files[] = includes/views/micro_views_handler_field_edit.inc
+files[] = includes/views/micro_views_handler_field_micro.inc
+files[] = includes/views/micro_views_handler_field_micro_path.inc
+files[] = includes/views/micro_views_handler_field_micro_type.inc
+files[] = includes/views/micro_views_handler_filter_micro_type.inc
+files[] = includes/views/micro_views_handler_filter_micro_entity.inc
+files[] = includes/views/micro_views_handler_field_micro_entity.inc
+files[] = includes/views/micro_views_handler_relationships.inc
