@@ -1,21 +1,18 @@
 <?php
-// $Id$ micro.tpl.php, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
  * Default theme implementation to display a micro.
  *
  * Available variables:
- * - $title: the (sanitized) title of the micro.
- * - $content: An array of micro items. Use render($content) to print them all,
- *   or print a subset such as render($content['field_example']). Use
- *   hide($content['field_example']) to temporarily suppress the printing of a
- *   given element.
- * - $user_picture: The micro author's picture from user-picture.tpl.php.
+ * - $title: Title of the micro (micro ID).
+ * - $content: An array of containing the micro item's content.
+ * - $picture: The micro author's picture from user-picture.tpl.php.
  * - $date: Formatted creation date. Preprocess functions can reformat it by
  *   calling format_date() with the desired parameters on the $created variable.
  * - $name: Themed username of micro author output from theme_username().
- * - $micro_url: Direct url of the current micro.
+ * - $permalink: Direct url of the current micro.
  * - $display_submitted: whether submission information should be displayed.
  * - $classes: String of classes that can be used to style contextually through
  *   CSS. It can be manipulated through the variable $classes_array from
@@ -25,13 +22,6 @@
  *   - micro-[type]: The current micro type. For example, if the micro is a
  *     "Blog entry" it would result in "micro-blog". Note that the machine
  *     name will often be in a short form of the human readable label.
- *   - micro-teaser: micros in teaser form.
- *   - micro-preview: micros in preview mode.
- *   The following are controlled through the micro publishing options.
- *   - micro-promoted: micros promoted to the front page.
- *   - micro-sticky: micros ordered above other non-sticky micros in teaser
- *     listings.
- *   - micro-unpublished: Unpublished micros visible only to administrators.
  * - $title_prefix (array): An array containing additional output populated by
  *   modules, intended to be displayed in front of the main title tag that
  *   appears in the template.
@@ -41,26 +31,27 @@
  *
  * Other variables:
  * - $micro: Full micro object. Contains data that may not be safe.
- * - $type: micro type, i.e. story, page, blog, etc.
- * - $comment_count: Number of comments attached to the micro.
+ * - $micro_type: Full micro type object, i.e. status, story, page, microblog, etc.
+ * - $type: Machine name of the micro type.
+ * - $entity: Full entity object to which the micro is attached to.
+ * - $mid: Micro ID.
+ * - $mtid: Micro type ID.
+ * - $eid: Entity ID to which the micro is attached to.
  * - $uid: User ID of the micro author.
  * - $created: Time the micro was published formatted in Unix timestamp.
  * - $classes_array: Array of html class attribute values. It is flattened
- *   into a string within the variable $classes.
+ *   into a string within the variable $classes. The default values can be one
+ *   or more of the following:
+ *   - micro: The current template type, i.e., "theming hook".
+ *   - micro-by-entity-author: micro by the author of the parent entity.
+ *   - micro-by-viewer: micro by the user currently viewing the page.
  * - $zebra: Outputs either "even" or "odd". Useful for zebra striping in
  *   teaser listings.
  * - $id: Position of the micro. Increments each time it's output.
  *
- * micro status variables:
- * - $view_mode: View mode, e.g. 'full', 'teaser'...
- * - $teaser: Flag for the teaser state (shortcut for $view_mode == 'teaser').
+ * Micro status variables:
+ * - $view_mode: View mode, e.g. 'full', 'small'...
  * - $page: Flag for the full page state.
- * - $promote: Flag for front page promotion state.
- * - $sticky: Flags for sticky post setting.
- * - $status: Flag for published status.
- * - $comment: State of comment settings for the micro.
- * - $readmore: Flags true if the teaser content of the micro cannot hold the
- *   main body content.
  * - $is_front: Flags true when presented in the front page.
  * - $logged_in: Flags true when the current user is a logged-in member.
  * - $is_admin: Flags true when the current user is an administrator.
@@ -77,40 +68,33 @@
  * @see template_process()
  */
 ?>
-<div id="micro-<?php print $micro->mid; ?>" class="<?php print $classes; ?> clearfix"<?php print $attributes; ?>>
-<?php
-/*
- *  <?php print $user_picture; ?>
- *
- *  <?php print render($title_prefix); ?>
- *  <?php if (!$page): ?>
- *    <h2<?php print $title_attributes; ?>><a href="<?php print $micro_url; ?>"><?php print $title; ?></a></h2>
- *  <?php endif; ?>
- *  <?php print render($title_suffix); ?>
- *
- *  <?php if ($display_submitted): ?>
- *    <div class="submitted">
- *      <?php
- *        print t('Submitted by !username on !datetime',
- *          array('!username' => $name, '!datetime' => $date));
- *      ?>
- *    </div>
- *  <?php endif; ?>
- *
- *  <div class="content"<?php print $content_attributes; ?>>
- *    <?php
- *      // We hide the comments and links now so that we can render them later.
- *      hide($content['comments']);
- *      hide($content['links']);
- *      print render($content);
- *    ?>
- *  </div>
- *
- *  <?php print render($content['links']); ?>
- *
- *  <?php print render($content['comments']); ?>
- */
- dsm($variables);
- ?>
+<div id="micro-<?php print $mid; ?>" class="<?php print $classes; ?> clearfix"<?php print $attributes; ?>>
+  <?php print $user_picture; ?>
 
+  <?php print render($title_prefix); ?>
+  <?php if (!$page): ?>
+    <h2<?php print $title_attributes; ?>><a href="<?php print $permalink; ?>"><?php print $title; ?></a></h2>
+  <?php endif; ?>
+  <?php print render($title_suffix); ?>
+
+  <?php if ($display_submitted): ?>
+    <div class="submitted">
+      <?php
+        print t('Submitted by !username on !datetime',
+          array('!username' => $name, '!datetime' => $date));
+      ?>
+    </div>
+  <?php endif; ?>
+
+  <div class="content"<?php print $content_attributes; ?>>
+    <?php
+      // We hide the links now so that we can render them later.
+      hide($content['links']);
+       print render($content['micro_publisher']);
+       print render($content);
+       print render($content['links']);
+    ?>
+  </div>
+
+  <?php print render($content['links']); ?>
 </div>

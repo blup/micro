@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro.views.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
@@ -18,24 +18,16 @@ function micro_views_data() {
   $data['micro']['table']['group']  = t('Micro');
   $data['micro']['table']['join'] = array(
     'micro_type' => array(
+      'left_table' => 'micro',
       'left_field' => 'mtid',
       'field' => 'mtid',
       'type' => 'INNER',
     ),
-  );
-  $data['micro']['table']['join'] = array(
-    'users' => array(
-      'left_field' => 'uid',
-      'field' => 'uid',
-      'type' => 'INNER',
-    ),
-  );
-  $data['users']['table']['join'] = array(
-    'micro' => array(
-      'left_field' => 'uid',
-      'field' => 'uid',
-      'type' => 'INNER',
-    ),
+     'users' => array(
+       'left_field' => 'uid',
+       'field' => 'uid',
+       'type' => 'INNER',
+     ),
   );
 
   //Advertise this table as a possible base table.
@@ -45,23 +37,6 @@ function micro_views_data() {
     'help' => t('Micro items are attacheable to other fieldable entities.'),
     'weight' => 10,
   );
-
-  /*
-   *$data['micro']['users'] = array(
-   *  'group' => t('Facebook-style Statuses'),
-   *  'relationship' => array(
-   *    'title' => t('Users'),
-   *    'label' => t('Users'),
-   *    'help' => t('Add a relationship to gain access to information related to the users who submitted the relevant statuses.'),
-   *    'relationship table' => 'users',
-   *    'relationship field' => 'uid',
-   *    'base' => 'micro',
-   *    'field' => 'uid',
-   *    'type' => 'INNER',
-   *    'handler' => 'views_handler_relationship',
-   *  ),
-   *);
-   */
 
   //Declares the micro id column.
   $data['micro']['mid'] = array(
@@ -144,6 +119,12 @@ function micro_views_data() {
     ),
     'argument' => array(
       'handler' => 'views_handler_argument_numeric',
+    ),
+    'relationship' => array(
+      'handler' => 'views_handler_relationship',
+      'base' => 'users',
+      'field' => 'uid',
+      'label' => t('user'),
     ),
   );
 
@@ -310,11 +291,11 @@ function micro_views_data_alter(&$data) {
 
     $data[$relationship['base_table']]['micro'] = array(
       'group' => t('Micro'),
-      'title' => 'Micro items',
+      'title' => 'Micro',
       'help' => 'Micro items attached to ' . $relationship['description'] . '.',
       'relationship' => array(
         'base' => 'micro',
-        'field' => 'eid',
+        'base field' => 'eid',
         'relationship field' => $relationship['entity_id_column'],
         'entity_type' => $relationship['entity_type'],
         'handler' => 'micro_views_handler_relationship_micro',
@@ -323,17 +304,24 @@ function micro_views_data_alter(&$data) {
 
     $data['micro']['relationship_' . $relationship['base_table']] = array(
       'group' => t('Micro'),
-      'title' => ucfirst($relationship['description']) . '->Micro',
+      'title' => ucfirst($relationship['description']),
       'help' => ucfirst($relationship['description']) . ' with micro items attached to them.',
       'relationship' => array(
         'base' => $relationship['base_table'],
-        'field' => $relationship['entity_id_column'],
+        'base field' => $relationship['entity_id_column'],
         'relationship field' => 'eid',
         'entity_type' => $relationship['entity_type'],
         'handler' => 'micro_views_handler_relationship_entity',
       )
     );
   }
+  $data['users']['table']['join'] = array(
+    'micro' => array(
+      'left_field' => 'uid',
+      'field' => 'uid',
+      'type' => 'INNER',
+    ),
+  );
 }
 
 /**
@@ -361,4 +349,69 @@ function micro_views_config_form($form_type, $entity_type, $current_micro) {
   return $form;
 }
 
+
+/**
+ * Implements hook_views_plugins
+ */
+function micro_views_plugins() {
+  return array(
+    'module' => 'views',
+    'row' => array(
+      'micro' => array(
+        'title' => t('Micro'),
+        'help' => t('Display the node with standard node view.'),
+        'handler' => 'micro_plugin_row_micro_view',
+        'path' => drupal_get_path('module', 'views') . '/modules/micro',
+        'theme' => 'views_view_row_micro',
+        'base' => array('micro'),
+        'uses options' => TRUE,
+        'type' => 'normal',
+        'help topic' => 'style-micro',
+      ),
+    ),
+  );
+}
+
+/**
+ * Template helper for theme_views_view_row_micro
+ */
+function template_preprocess_views_view_row_micro(&$vars) {
+  $options = $vars['options'];
+
+  // Make sure the variables are defined.
+  $vars['micro'] = '';
+  $vars['comments'] = '';
+
+  if (!empty($vars['row']->{$vars['field_alias']})) {
+    $mid = $vars['row']->{$vars['field_alias']};
+  }
+  if (!is_numeric($mid)) {
+    return;
+  }
+
+  $row_plugin = $vars['view']->style_plugin->row_plugin;
+  $micro = $row_plugin->micros[$mid];
+
+  if (empty($micro)) {
+    return;
+  }
+
+  $micro->view = $vars['view'];
+  // Detect which build module should be used.
+  $micro->build_mode = ($options['build_mode'] == 'teaser' || $options['build_mode'] == 'full') ? $options['build_mode'] : 'full';
+  $content = micro_view_multiple(array($micro->mid => $micro), $micro->build_mode);
+  $content = $content['micros'][$micro->mid];
+  if (!$options['links']) {
+    unset($content['links']);
+  }
+
+  /*
+   *if (!empty($options['comments']) && user_access('access comments') && $micro->comment) {
+   *  $vars['comments'] = drupal_render(comment_micro_page_additions($micro));
+   *}
+   */
+
+  $vars['micro'] = drupal_render($content);
+
+}
 

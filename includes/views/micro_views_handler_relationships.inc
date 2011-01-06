@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro_views_handler_relationships.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
@@ -7,7 +7,7 @@
  */
 
 /**
- * Specialized relationship handler associating flags and content.
+ * Relationship from entity to micro.
  *
  * @ingroup views
  */
@@ -29,6 +29,7 @@ class micro_views_handler_relationship_micro extends views_handler_relationship 
   function options_form(&$form, &$form_state) {
     parent::options_form($form, $form_state);
     $entity_type = $this->definition['entity_type'];
+    $form['label']['#default_value'] = 'micro';
     $form['label']['#description'] .= ' ' . t('The name of the selected micro type makes a good label.');
     $form['micro'] = micro_views_config_form('radios', $entity_type, $this->options['micro']);
 
@@ -70,7 +71,7 @@ class micro_views_handler_relationship_micro extends views_handler_relationship 
 }
 
 /**
- * Specialized relationship handler associating flags and content.
+ * Relationship from micro items to their entities.
  *
  * @ingroup views
  */
@@ -93,6 +94,7 @@ class micro_views_handler_relationship_entity extends views_handler_relationship
   function options_form(&$form, &$form_state) {
     parent::options_form($form, $form_state);
     $entity_type = $this->definition['entity_type'];
+    $form['label']['#default_value'] = $entity_type;
     $form['label']['#description'] .= ' ' . t('The name of the selected micro type makes a good label.');
     $form['micro'] = micro_views_config_form('radios', $entity_type, $this->options['micro']);
 
@@ -143,32 +145,6 @@ class micro_views_handler_relationship_entity extends views_handler_relationship
     $def['left_field'] = $this->field;
     $def['type'] = empty($this->options['required']) ? 'LEFT' : 'INNER';
 
-    /*
-     *$query = db_select($def['table'], 'x');
-     *$query->addJoin($def['type'], 'micro', 'm', 'x.' . $base_field . ' = m.eid');
-     *$query->addJoin($def['type'], 'micro_type', 'mt', 'mt.mtid = m.mtid');
-     *$query->condition('mt.machine_name', $this->options['micro']);
-     *$query->fields('x');
-     */
-    $query = db_select($def['table'], 'x');
-    $query->addJoin($def['type'], 'micro', 'm', 'x.' . $base_field . ' = m.eid');
-    $query->addJoin($def['type'], 'micro_type', 'mt', 'mt.mtid = m.mtid');
-    $query->condition('mt.machine_name', $this->options['micro']);
-    $query->fields('x');
-    /*
-     *$def['table formula'] = $query;
-     */
-
-    /*
-     *if ($this->options['user_scope'] == 'current') {
-     *  $def['extra'][] = array(
-     *    'field' => 'uid',
-     *    'value' => '***CURRENT_USER***',
-     *    'numeric' => TRUE,
-     *  );
-     *}
-     */
-
     $join = new views_join();
 
     $join->definition = $def;
@@ -178,16 +154,7 @@ class micro_views_handler_relationship_entity extends views_handler_relationship
     // use a short alias for this:
     $alias = $def['table'] . '_' . $this->table;
 
-    /*
-     *$this->query->add_where($this->options['group'], "$this->table_alias.$this->real_field", $this->value, $this->operator);
-     */
-    /*
-     *$this->alias = $this->query->add_relationship($alias, $join, 'micro_type', $this->relationship);
-     */
-    /*
-     *$this->alias = $this->query->add_relationship($alias, $join, $this->definition['base'], $this->relationship);
-     */
-     $this->query->add_where($this->options['group'], "$this->table_alias.mtid", $micro_type->mtid);
+    $this->query->add_where($this->options['group'], "$this->table_alias.mtid", $micro_type->mtid);
     parent::query();
   }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro_views_handler_filter_micro_entity.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file

@@ -1,4 +1,4 @@
-; $Id$ micro.info, v 1.0 2010/12/01 04:20:00 blup Exp $
+; $Id$
 
 name = Micro
 description = Micro entity that attaches to other entities (or site)
@@ -27,3 +27,5 @@ files[] = includes/views/micro_views_handler_filter_micro_type.inc
 files[] = includes/views/micro_views_handler_filter_micro_entity.inc
 files[] = includes/views/micro_views_handler_field_micro_entity.inc
 files[] = includes/views/micro_views_handler_relationships.inc
+files[] = includes/views/micro_plugin_row_micro_view.inc
+

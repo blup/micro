@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro.admin.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
@@ -89,11 +89,6 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     // This is a new type, managed by micro module.
     $type = micro_type_set_defaults(array('module' => 'micro'));
   }
-  /*
-   *else {
-   *  $form['#mtid'] = $type->mtid;
-   *}
-   */
   // Make the type object available to implementations of hook_form_alter.
   $form['#micro_type'] = $type;
 
@@ -159,6 +154,26 @@ function micro_type_form($form, &$form_state, $type = NULL) {
   //TODO - check type if set (after first submit)
   //TODO - force NOT simple page if other than site
   if ((isset($type->entity) && $type->entity != 'site') || (isset($form_state['values']['entity']) && $form_state['values']['entity'] != 'site')) {
+    $format = variable_get('micro_format_' . $type->machine_name);
+    $strings = variable_get('micro_format_strings_' . $type->machine_name);
+
+    $form['format']['string_create'] = array(
+      '#title' => t('Create'),
+      '#type' => 'textfield',
+      '#default_value' => isset($strings['string_create']) ? $strings['string_create'] : '',
+      '#description' => t('The label used for creating items of this micro type, if the display format requires it.'),
+      '#required' => TRUE,
+      '#size' => 30,
+    );
+    $form['format']['string_delete'] = array(
+      '#title' => t('Delete'),
+      '#type' => 'textfield',
+      '#default_value' => isset($strings['string_delete']) ? $strings['string_delete'] : '',
+      '#description' => t('The label used for deleting items of this micro type, if the display format requires it.'),
+      '#required' => TRUE,
+      '#size' => 30,
+    );
+
     foreach ($entities[isset($type->entity) ? $type->entity : $form_state['values']['entity']]['modes'] as $mode => $name) {
       $form['format'][$mode] = array(
         '#title' => t('Format for view mode "@name"', array('@name' => $name)),
@@ -171,7 +186,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
         '#type' => 'select',
         '#title' => t('Display type'),
         '#options' => _micro_get_display_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : NULL)),
-        '#default_value' => isset($type->data) ? $type->data['format']['display_' . $mode] : (isset($form_state['values']['display']) ? $form_state['values']['display'] : 'simple_page_display'),
+        '#default_value' => isset($format['display_' . $mode]) ? $format['display_' . $mode] : 'simple_page_display',
       );
       //TODO - check type if set (after first submit)
       //TODO - force NOT simple page if other than site
@@ -179,7 +194,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
         '#type' => 'select',
         '#title' => t('Input type'),
         '#options' => _micro_get_input_options($entities, $selected, isset($type->machine_name) ? $type->machine_name : (isset($form_state['values']['machine_name']) ? $form['values']['machine_name'] : NULL)),
-        '#default_value' => isset($type->data) ? $type->data['format']['input_' . $mode] : (isset($form_state['values']['input']) ? $form_state['values']['input'] : 'simple_page_input'),
+        '#default_value' => isset($format['input_' . $mode]) ? $format['input_' . $mode] : 'simple_page_input',
       );
     }
   }
@@ -205,11 +220,6 @@ function micro_type_form($form, &$form_state, $type = NULL) {
 
   $form['additional_settings'] = array(
     '#type' => 'vertical_tabs',
-    /*
-     *'#attached' => array(
-     *  'js' => array(drupal_get_path('module', 'micro') . '/micro_types.js'),
-     *),
-     */
   );
 
   $form['workflow'] = array(
@@ -219,7 +229,7 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     '#group' => 'additional_settings',
   );
   // Disable if 'site'
-  $form['workflow']['view_page'] = array(
+  $form['workflow']['micro_view_page'] = array(
     '#type' => 'checkbox',
     '#title' => t('View page'),
     '#description' => t('Whether items from this micro type will have their own view page (uri). If not, they will redirect to their parent entity. Micro items attached to the site will always have a view page.'),
@@ -227,47 +237,25 @@ function micro_type_form($form, &$form_state, $type = NULL) {
     /*
      *'#disabled' => (isset($form_state['values']['entity']) && $form_state['values']['entity'] == 'site') ? TRUE : FALSE,
      */
-    '#default_value' => TRUE,
+     '#default_value' => variable_get('micro_view_page_' . $type->machine_name, TRUE)
   );
-  $form['workflow']['delete_confirmation'] = array(
+  $form['workflow']['micro_delete_confirmation'] = array(
     '#type' => 'checkbox',
     '#title' => t('Delete confirmation'),
     '#description' => t('Whether items from this micro type have a \'delete confirmation\' page.'),
     '#options' => array('0' => FALSE, '1' => TRUE),
-    '#default_value' => isset($type->data['delete_confirm']) ? $type->data['delete_confirm'] : FALSE,
+    '#default_value' => variable_get('micro_delete_confirm_' . $type->machine_name, FALSE),
   );
 
-  $form['expiration'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Expiration'),
-    '#collapsible' => TRUE,
-    '#group' => 'additional_settings',
-  );
-  $form['expiration']['expiration'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Expiration'),
-    '#description' => t('Whether items from this micro type will have an expiration date.'),
-    '#options' => array('0' => FALSE, '1' => TRUE),
-    '#default_value' => isset($type->data['expiration']) ? $type->data['expiration'] : FALSE,
-  );
-  $form['expiration']['expiration_time'] = array(
-    '#title' => t('Expiration time'),
-    '#type' => 'textfield',
-    '#default_value' => isset($type->data['expiration_time']) ? $type->data['expiration_time'] : '',
-    '#description' => t('The time (in seconds) after which the items will expire.'),
-    '#size' => 30,
-  );
 
   $form['module'] = array(
     '#type' => 'value',
     '#value' => $type->module,
   );
-  /*
-   *$form['locked'] = array(
-   *  '#type' => 'value',
-   *  '#value' => $type->locked,
-   *);
-   */
+  $form['locked'] = array(
+    '#type' => 'value',
+    '#value' => $type->isLocked(),
+  );
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -384,23 +372,28 @@ function micro_type_form_submit($form, &$form_state) {
   $type->bundles = $form_state['values']['bundles'];
   foreach ($form_state['values'] as $key => $value) {
     if (substr($key, 0, 5) == 'input' || substr($key, 0, 7) == 'display') {
-      $data['format'][$key] = $value;
+      $format[$key] = $value;
+      unset($form_state['values'][$key]);
     }
   }
+  if (isset($format)) {
+    variable_set('micro_format_' . $type->machine_name, $format);
+  }
+
+  foreach ($form_state['values'] as $key => $value) {
+    if (substr($key, 0, 6) == 'string') {
+      $strings[$key] = $value;
+      unset($form_state['values'][$key]);
+    }
+  }
+  if (isset($strings)) {
+    variable_set('micro_format_strings_' . $type->machine_name, $strings);
+  }
+
   // TODO - force this in form
   if ($form_state['values']['entity'] == 'site') {
-    $data['view_page'] = TRUE;
+    $form_state['values']['micro_view_page'] = TRUE;
   }
-  else {
-    $data['view_page'] = $form_state['values']['view_page'];
-  }
-  $data['delete_confirmation'] = $form_state['values']['delete_confirmation'];
-  $data['expiration'] = $form_state['values']['expiration'];
-  $data['expiration_time'] = $form_state['values']['expiration_time'];
-
-  // Let other modules add in their data.
-  drupal_alter('micro_data', $data, $form_state);
-  $type->data = $data;
 
   $type->module = !empty($form_state['values']['module']) ? $form_state['values']['module'] : 'micro';
   if (isset($form['#micro_type']->module)) {

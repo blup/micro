@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro.install, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
@@ -10,6 +10,21 @@
  * Implement hook_install().
  */
 function micro_install() {
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function micro_uninstall() {
+  $result = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'micro_%', 'LIKE')
+    ->execute();
+  foreach ($result as $row) {
+    variable_del($row->name);
+  }
+
+  drupal_set_message(t('Micro has been uninstalled.'));
 }
 
 /**
@@ -39,10 +54,9 @@ function micro_schema() {
       'entity' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'node', 'description' => 'The entity type to which this micro type is attached to'),
       'bundles' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'The bundle type(s) to which this micro type is attached to'),
       'module' => array('description' => 'The module defining this micro type.', 'type' => 'varchar', 'length' => 255, 'not null' => TRUE),
-      'description' => array('description' => 'A brief description of this type.', 'type' => 'text', 'not null' => TRUE, 'size' => 'medium', 'translatable' => TRUE),
       'disabled' => array('description' => 'A boolean indicating whether the node type is disabled.', 'type' => 'int', 'not null' => TRUE, 'default' => 0, 'size' => 'tiny'),
-      'weight' => array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0, 'description' => 'The weight of this micro type in relation to others.'),
-      'data' => array('type' => 'text', 'size' => 'big', 'not null' => FALSE, 'serialize' => TRUE, 'description' => 'A serialized array of additional data related to this micro type' ),
+      'status' => array('description' => 'The exportable status of the entity.', 'type' => 'int', 'not null' => TRUE, 'default' => 0, 'size' => 'tiny'),
+      'description' => array('description' => 'A brief description of this type.', 'type' => 'text', 'not null' => TRUE, 'size' => 'medium', 'translatable' => TRUE),
     ),
     'primary key' => array('mtid'),
     'unique keys' => array('machine_name' => array('machine_name')),

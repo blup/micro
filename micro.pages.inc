@@ -1,5 +1,5 @@
 <?php
-// $Id$ micro.pages.inc, v 1.0 2010/12/01 04:20:00 blup Exp $
+// $Id$
 
 /**
  * @file
@@ -11,7 +11,7 @@
  */
 function micro_page_edit($micro) {
   $type = micro_type_get_type($micro);
-  drupal_set_title(t('<em>Edit @type</em> @mid', array('@type' => $type->name, '@mid' => $micro->mid)), PASS_THROUGH);
+  drupal_set_title(t('Edit @type @mid', array('@type' => $type->name, '@mid' => $micro->mid)));
   return drupal_get_form($type->machine_name . '_micro_form', $micro);
 }
 
@@ -57,18 +57,18 @@ function theme_micro_add_list($variables) {
 /**
  * Present a micro submission form or a set of links to such forms.
  */
-function micro_add($type, $id) {
+function micro_add($micro_type, $id, $is_page = TRUE) {
   global $user;
 
-  $types = micro_type_get_types();
-  $type = isset($type) ? str_replace('-', '_', $type) : NULL;
+  $type = micro_type_get_type($micro_type);
   // If a micro type has been specified, validate its existence.
-  if (isset($types[$type])) {
+  if (isset($type)) {
     // Initialize settings:
-    $micro = micro_create(array('uid' => $user->uid, 'mtid' => $types[$type]->mtid, 'eid' => $id, 'type' => $type));
-
-    drupal_set_title(t('Create @name', array('@name' => $types[$type]->name)), PASS_THROUGH);
-    $output = drupal_get_form($type . '_micro_form', $micro);
+    $micro = micro_create(array('uid' => $user->uid, 'mtid' => $type->mtid, 'eid' => $id, 'type' => $type->machine_name, 'name' => $user->name));
+    if ($is_page) {
+      drupal_set_title(t('Create @name', array('@name' => $type->name)), PASS_THROUGH);
+    }
+    $output = drupal_get_form($type->machine_name . '_micro_form', $micro);
   }
 
   return $output;
@@ -123,7 +123,7 @@ function micro_form($form, &$form_state, $micro) {
   // because hook_form() needs to be able to receive $form_state by reference.
   // @todo hook_form() implementations are unable to add #validate or #submit
   //   handlers to the form buttons below. Remove hook_form() entirely.
-  $function = micro_type_get_module($micro) . '_content_form';
+  $function = micro_type_get_module($micro) . '_micro_form';
   if (function_exists($function) && ($extra = $function($micro, $form_state))) {
     $form = array_merge_recursive($form, $extra);
   }
